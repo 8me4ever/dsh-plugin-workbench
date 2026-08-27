@@ -245,6 +245,10 @@ class Storage:
             )
             count += 1
         self._conn.commit()
+        # 关键:重建完成后必须再导出一份快照。否则 upsert_job 在循环内
+        # 已触发 export_json,最后一条岗位的 score/grade/reasons/details
+        # 会停留在「恢复打分」UPDATE 之前的默认值,导致往返不幂等。
+        self.export_json()
         return count
 
     def close(self) -> None:

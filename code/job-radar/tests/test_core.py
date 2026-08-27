@@ -1,6 +1,7 @@
 """job-radar 核心逻辑单元测试。"""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -10,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.parser import parse_jd  # noqa: E402
 from src.scorer import Scorer  # noqa: E402
+from src.storage import Storage  # noqa: E402
 
 PROFILE = {
     "cities": ["北京", "深圳"],
@@ -132,3 +134,54 @@ class TestSoftScore:
         score = s._skill_score(jd)
         assert score > 0
         assert score <= 100
+
+
+# ---------- 存储:JSON 快照往返 ----------
+
+class TestImportExportRoundtrip:
+    def test_import_reexport_preserves_reasons_and_details(self, tmp_path):
+        """重建本地库后再导出,所有岗位的 reasons/details 应与原快照一致。
+
+        回归:import_json 循环内 upsert_job 会触发 export_json,若末尾不补一次
+        导出,最后一条岗位(按 score DESC 排序)的过滤原因/明细会丢失。
+        """
+        plus = ["FastAPI", "Redis", "高并发"]
+
+        # 两条岗位:一条通过(有 details),一条硬性过滤失败(有 reasons)
+        jd_ok = parse_jd(
+            "岗位:后端工程师 工作地点:北京 薪资:30-50K 本科 3-5年 "
+            "精通Python、FastAPI、Redis",
+            plus_skills=plus,
+        )
+        jd_bad = parse_jd(
+            "岗位:前端工程师 工作地点:北京 薪资:30-50K 本科 3-5年 精通React",
+            plus_skills=plus,
+        )
+
+        s1 = Storage(tmp_path)
+        s1.upsert_job(jd_ok, score=make_scorer().score(jd_ok), source="manual")
+        s1.upsert_job(jd_bad, score=make_scorer().score(jd_bad), source="manual")
+        s1.close()
+
+        orig = json.loads((tmp_path / "jobs.json").read_text(encoding="utf-8"))
+        orig_by_id = {j["id"]: j for j in orig["jobs"]}
+        assert len(orig_by_id) == 2
+
+        # 重建到一个全新库(模拟新机器拉取后重建)
+        s2 = Storage(tmp_path / "rebuilt")
+        n = s2.import_json(tmp_path / "jobs.json")
+        s2.close()
+        assert n == 2
+
+        rebuilt = json.loads(
+            (tmp_path / "rebuilt" / "jobs.json").read_text(encoding="utf-8")
+        )
+        rebuilt_by_id = {j["id"]: j for j in rebuilt["jobs"]}
+        assert set(rebuilt_by_id) == set(orig_by_id)
+        for jid, o in orig_by_id.items():
+            r = rebuilt_by_id[jid]
+            assert r["score"] == o["score"]
+            assert r["grade"] == o["grade"]
+            assert r["status"] == o["status"]
+            assert r["reasons"] == o["reasons"]
+            assert r["details"] == o["details"]
