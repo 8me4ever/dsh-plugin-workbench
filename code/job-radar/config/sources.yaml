@@ -1,20 +1,32 @@
 # 聚合订阅源配置 —— 在这里添加你想监控的 RSS/Atom 源
-# 支持:公司官网招聘 RSS、RSSHub 路由、任何符合 RSS/Atom 规范的招聘源
 #
-# RSSHub 常用招聘路由示例(需自建实例或使用公共实例,公共实例可能不稳定):
-#   BOSS直聘(部分路由): https://rsshub.app/boss/zhaopin/{city}/{keyword}
-#   建议先测通一个源再批量加;抓取失败不会中断其他源。
+# ⚠️ 2026-08-27 实测结论(公司网络环境):
+#   ✅ Hacker News Jobs(hnrss.org/jobs)可用 —— 已启用
+#   ✅ GitHub Trending RSS 可用(非招聘,作技术趋势参考)
+#   ❌ RSSHub 公共实例全部超时/403(被墙或已关闭)
+#   ❌ 智联 API 返回空/触发安全验证;猎聘/51job/拉勾页面无内嵌数据(需登录态 → V2 半自动方案)
+#   ❌ remoteok / weworkremotely RSS 410/403
 #
-# 注意:URL 中的特殊字符(如 #、&)在 YAML 中不需要转义,但中文建议用 URL 编码。
+# RSSHub 招聘路由示例(自建实例或网络可达后启用):
+#   https://rsshub.app/zhaopin/北京/数据分析
+#   https://rsshub.app/lagou/jobs/数据分析/北京
 
 sources:
-  - name: "示例源-Lagou(测试用,可能失效)"
-    url: "https://rsshub.app/lagou/jobs/后端/北京"
+  # ✅ 真实可用:Hacker News Jobs(YC 系创业公司,英文岗位,海外/远程)
+  #    HN 摘要只有链接,enrich_detail: true 会自动抓详情页补充 JD 正文
+  - name: "HN-Jobs"
+    url: "https://hnrss.org/jobs"
+    enabled: true
+    company: ""
+    enrich_detail: true
+
+  # 国内平台待 V2 半自动方案(浏览器登录态)再接入,这里先留位:
+  - name: "智联-数据分析-北京"
+    url: "https://fe-api.zhaopin.com/c/i/sou?cityId=530&kw=%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90"
     enabled: false
     company: ""
 
-  # 真实可用的源示例(公司官网招聘页 RSS,找到后替换):
-  - name: "公司A-招聘"
-    url: "https://example.com/careers/feed.xml"
+  - name: "猎聘-python"
+    url: "https://www.liepin.com/zhaopin/?key=python"
     enabled: false
-    company: "公司A"
+    company: ""

@@ -34,12 +34,20 @@ class ParsedJD:
 
 # ---------- 正则规则 ----------
 
-# 薪资:15-25K / 15k-25k / 15-25千 / 15K-25K·13薪 / 月薪15-25k / 2-3万
-_SALARY_PATTERNS = [
+# 薪资:美元年薪模式(带 $ 前缀,命中按 USD→CNY 换算;优先匹配,避免 "1-3 days, $1-3K" 干扰)
+_SALARY_USD_PATTERNS = [
+    re.compile(r"\$\s*(\d{1,3}(?:\.\d)?)\s*[kK]\s*[-~—–]\s*\$?\s*(\d{1,3}(?:\.\d)?)\s*[kK]"),
+    re.compile(r"\$\s*(\d{1,3}(?:,\d{3})+)\s*[-~—–]\s*\$?\s*(\d{1,3}(?:,\d{3})+)"),
+]
+# 薪资:人民币模式 15-25K / 15k-25k / 15-25千 / 2-3万 / 月薪15-25k
+_SALARY_CNY_PATTERNS = [
     re.compile(r"(\d{1,3}(?:\.\d)?)\s*[-~—–]\s*(\d{1,3}(?:\.\d)?)\s*[kK千]"),
     re.compile(r"(\d{1,2}(?:\.\d)?)\s*[-~—–]\s*(\d{1,2}(?:\.\d)?)\s*万"),
     re.compile(r"月薪\s*(\d{1,3}(?:\.\d)?)\s*[-~—–]\s*(\d{1,3}(?:\.\d)?)\s*[kK千]"),
 ]
+
+# 汇率:1 USD ≈ 7.2 CNY(可调)
+USD_TO_CNY = 7.2
 
 # 经验:3-5年 / 3年以上 / 5年以下 / 经验不限 / 1年及以下
 _EXP_PATTERNS = [
@@ -81,10 +89,19 @@ _COMPANY_PATTERNS = [
 
 def _parse_salary(text: str) -> tuple[int, int]:
     """返回 (salary_min, salary_max),单位元;解析不到返回 (0, 0)。"""
-    for pat in _SALARY_PATTERNS:
+    # 美元年薪优先(更强信号)
+    for pat in _SALARY_USD_PATTERNS:
         m = pat.search(text)
         if m:
-            lo, hi = float(m.group(1)), float(m.group(2))
+            lo = float(m.group(1).replace(",", ""))
+            hi = float(m.group(2).replace(",", ""))
+            # 美元年薪 → 人民币月薪(年薪/12)
+            return int(lo * 1000 * USD_TO_CNY / 12), int(hi * 1000 * USD_TO_CNY / 12)
+    # 人民币月薪
+    for pat in _SALARY_CNY_PATTERNS:
+        m = pat.search(text)
+        if m:
+            lo, hi = float(m.group(1).replace(",", "")), float(m.group(2).replace(",", ""))
             if "万" in m.group(0):
                 lo, hi = lo * 10000, hi * 10000
             else:

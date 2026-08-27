@@ -28,6 +28,7 @@ class Source:
     url: str
     enabled: bool = True
     company_hint: str = ""  # 可选:源固定的公司名
+    enrich_detail: bool = False  # 摘要过短时是否抓详情页补充正文
 
     @classmethod
     def from_dict(cls, d: dict) -> "Source":
@@ -36,6 +37,7 @@ class Source:
             url=d.get("url", ""),
             enabled=d.get("enabled", True),
             company_hint=d.get("company", ""),
+            enrich_detail=d.get("enrich_detail", False),
         )
 
 
@@ -85,6 +87,37 @@ def fetch_feed(
             client.close()
 
 
+def fetch_detail(url: str, client: httpx.Client | None = None) -> str:
+    """抓取岗位详情页正文(用于摘要稀疏的源,如 HN Jobs)。
+
+    仅抓取明显可用的 URL(https),失败时返回空串,不影响主流程。
+    """
+    if not url or not url.startswith("http"):
+        return ""
+    own_client = client is None
+    if own_client:
+        client = httpx.Client(timeout=DEFAULT_TIMEOUT, follow_redirects=True)
+    try:
+        resp = client.get(url, headers={"User-Agent": "Mozilla/5.0 (job-radar/0.1)"})
+        if resp.status_code != 200:
+            return ""
+        text = resp.text
+        # 轻量 HTML → 文本:去脚本/样式/标签
+        import re
+
+        text = re.sub(r"<script[\s\S]*?</script>", " ", text)
+        text = re.sub(r"<style[\s\S]*?</style>", " ", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:4000]  # 截断,控制体积
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("详情页抓取失败 %s: %s", url, exc)
+        return ""
+    finally:
+        if own_client:
+            client.close()
+
+
 def collect(
     sources: list[Source],
     parse_skills: list[str],
@@ -106,18 +139,23 @@ def collect(
                 continue
             logger.info("抓取源: %s (%s)", src.name, src.url)
             for entry in fetch_feed(src.url, client):
-                text = "\n".join(
-                    [entry["title"], entry["summary"], entry.get("author", "")]
-                )
-                parsed = parse_entry(entry, src, parse_skills)
+                parsed = parse_entry(entry, src, parse_skills, client)
                 if on_job:
                     on_job(parsed, src.name)
                 count += 1
     return count
 
 
-def parse_entry(entry: dict, src: Source, parse_skills: list[str]) -> ParsedJD:
-    """把 feed 条目转为 ParsedJD。"""
+def parse_entry(
+    entry: dict,
+    src: Source,
+    parse_skills: list[str],
+    client: httpx.Client | None = None,
+) -> ParsedJD:
+    """把 feed 条目转为 ParsedJD。
+
+    摘要过短(稀疏源,如 HN Jobs)时,自动抓取详情页(entry.link)补充正文。
+    """
     from .parser import parse_jd
 
     title = entry.get("title", "")
@@ -130,6 +168,16 @@ def parse_entry(entry: dict, src: Source, parse_skills: list[str]) -> ParsedJD:
     summary = re.sub(r"\s+", " ", summary).strip()
 
     text = f"{title}\n{summary}\n{author}"
+    # 源配置了 enrich_detail 时,无条件抓详情页补正文(HN 等链接型源,摘要只有 URL 占位)
+    if src.enrich_detail and entry.get("link"):
+        detail = fetch_detail(entry["link"], client)
+        if detail:
+            text = f"{title}\n{detail}"
+            # 公司名从详情页标题提取(如 "Founding Product Engineer at Proliferate")
+            m = re.search(r"\bat\s+([A-Za-z0-9&.\- ]{2,30})\s*\|?", detail[:200])
+            if m and not src.company_hint:
+                author = m.group(1).strip()
+
     return parse_jd(
         text,
         plus_skills=parse_skills,

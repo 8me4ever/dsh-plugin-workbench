@@ -35,7 +35,10 @@ python main.py serve
 ## 配置
 
 - `config/profile.yaml` — 求职画像(城市/薪资/经验/学历/技能/权重),**所有筛选参数都在这**
-- `config/sources.yaml` — RSS 聚合订阅源
+- `config/sources.yaml` — RSS 聚合订阅源(支持 `enrich_detail: true` 自动抓详情页补 JD 正文)
+
+> 💡 真实源实测(2026-08-27):HN Jobs(`https://hnrss.org/jobs`)可用,已启用;
+> RSSHub 公共实例与国内平台接口在公司网络下不可用,国内平台待 V2 半自动方案。
 
 ## 数据同步(公司/家庭双电脑)
 

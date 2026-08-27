@@ -49,6 +49,18 @@ class TestParse:
         assert jd.salary_min == 20000
         assert jd.salary_max == 30000
 
+    def test_salary_usd_annual(self):
+        # $150K-$300K 年薪 → 人民币月薪(1USD≈7.2, 年薪/12)
+        jd = parse_jd("Salary $150K - $300K", plus_skills=[])
+        assert jd.salary_min == 90000
+        assert jd.salary_max == 180000
+
+    def test_salary_usd_not_confused_with_trial(self):
+        # "1-3 days, $1-3K" 这类 trial 报酬不应被当主薪资
+        jd = parse_jd("Paid work trial: 1-3 days, $1-3K. Salary $150K - $300K", plus_skills=[])
+        assert jd.salary_min == 90000
+        assert jd.salary_max == 180000
+
     def test_experience_range(self):
         jd = parse_jd("要求3-5年经验", plus_skills=[])
         assert jd.experience_min == 3
