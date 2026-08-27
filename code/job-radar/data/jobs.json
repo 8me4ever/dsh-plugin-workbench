@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "exported_at": "2026-08-27T05:26:47+00:00",
+  "jobs": [
+    {
+      "id": "14b9fdfbe644",
+      "title": "高级Python后端工程师",
+      "company": "字节跳动",
+      "city": "北京",
+      "salary_min": 25000,
+      "salary_max": 40000,
+      "experience_min": 3,
+      "experience_max": 5,
+      "education": "本科",
+      "url": "https://example.com/job/1",
+      "source": "manual",
+      "published": "",
+      "raw": "岗位:高级Python后端工程师 公司:字节跳动 城市:北京 薪资:25-40K 要求:本科及以上,3-5年经验,精通Python、FastAPI、Redis、MySQL,有高并发和微服务经验",
+      "score": 76.1,
+      "grade": "A",
+      "status": "applied",
+      "reasons": [],
+      "details": {
+        "skill": 97.7,
+        "experience": 100,
+        "company": 0,
+        "freshness": 70.0,
+        "commute": 100.0,
+        "other": 0,
+        "skill_hits": [
+          "FastAPI",
+          "SQL",
+          "Redis",
+          "微服务",
+          "高并发"
+        ]
+      },
+      "created_at": "2026-08-27T05:26:39+00:00",
+      "updated_at": "2026-08-27T05:26:41+00:00"
+    },
+    {
+      "id": "dea8eb009bf9",
+      "title": "前端实习生",
+      "company": "小作坊科技",
+      "city": "上海",
+      "salary_min": 3000,
+      "salary_max": 5000,
+      "experience_min": 0,
+      "experience_max": 0,
+      "education": "大专",
+      "url": "https://example.com/job/2",
+      "source": "manual",
+      "published": "",
+      "raw": "岗位:前端实习生 公司:小作坊科技 城市:上海 薪资:3-5K 要求:大专,应届生",
+      "score": 0.0,
+      "grade": "C",
+      "status": "new",
+      "reasons": [],
+      "details": {},
+      "created_at": "2026-08-27T05:26:40+00:00",
+      "updated_at": "2026-08-27T05:26:47+00:00"
+    }
+  ]
+}

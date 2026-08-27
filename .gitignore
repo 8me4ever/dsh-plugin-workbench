@@ -39,3 +39,8 @@ venv/
 # *.zip
 # *.rar
 # *.7z
+
+# job-radar 本地数据(SQLite 不入库;JSON 快照入库用于跨机同步)
+code/job-radar/data/*.db
+code/job-radar/data/*.db-journal
+code/job-radar/data/*.tmp

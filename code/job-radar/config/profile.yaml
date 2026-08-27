@@ -1,0 +1,89 @@
+# 求职画像配置 —— 所有筛选/打分参数都在这改,改完重新打分即可
+# 岗位方向确定后,把 must_skills / plus_skills / salary 更新成你的真实情况
+
+# 目标城市(硬性过滤)
+cities:
+  - "北京"
+  - "深圳"
+
+# 月薪下限(元,取 JD 薪资区间的下限比较)
+salary_min: 15000
+
+# 期望经验区间(年,硬性过滤)
+experience:
+  min: 1
+  max: 8
+
+# 最低学历(硬性过滤):大专 / 本科 / 硕士 / 博士
+education: "本科"
+
+# 必须技能:JD 中必须出现(至少命中 1 个,硬性过滤)
+must_skills:
+  - "Python"
+  - "Golang"
+  - "Java"
+
+# 加分技能:命中越多分越高(软性评分 · 技能匹配度)
+plus_skills:
+  - name: "FastAPI"
+    weight: 10
+  - name: "Django"
+    weight: 8
+  - name: "Flask"
+    weight: 6
+  - name: "SQL"
+    weight: 8
+  - name: "Redis"
+    weight: 8
+  - name: "Kafka"
+    weight: 6
+  - name: "Docker"
+    weight: 6
+  - name: "Kubernetes"
+    weight: 5
+  - name: "Git"
+    weight: 4
+  - name: "Linux"
+    weight: 4
+  - name: "微服务"
+    weight: 8
+  - name: "高并发"
+    weight: 8
+  - name: "算法"
+    weight: 5
+
+# 软性评分权重(合计 100)
+weights:
+  skill: 40        # 技能匹配度:命中 plus_skills 加权得分 / 总分占比
+  experience: 20   # 经验契合:JD 要求年限落在期望区间内得满分
+  company: 15      # 公司实力:关键词加分(融资/规模)
+  freshness: 10    # 新鲜度:按发布时间衰减
+  commute: 10      # 通勤/城市:在目标城市列表得满分
+  other: 5         # 其他:福利关键词加分
+
+# 分级阈值(百分制)
+grades:
+  S: 85
+  A: 70
+  B: 55
+  C: 0
+
+# 公司实力加分关键词
+company_plus:
+  - "上市公司"
+  - "融资"
+  - "独角兽"
+  - "A轮"
+  - "B轮"
+  - "C轮"
+  - "500强"
+
+# 福利加分关键词
+benefit_plus:
+  - "六险一金"
+  - "年终奖"
+  - "弹性工作"
+  - "远程"
+  - "股票"
+  - "期权"
+  - "免费三餐"

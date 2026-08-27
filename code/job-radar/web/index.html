@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Radar · 岗位雷达</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1a2332;
+    --muted: #6b7688;
+    --border: #e3e7ee;
+    --primary: #2f6bff;
+    --primary-soft: #eef3ff;
+    --s: #12b76a;
+    --s-soft: #e6f7ef;
+    --a: #2f6bff;
+    --a-soft: #eef3ff;
+    --b: #f79009;
+    --b-soft: #fef3e6;
+    --c: #98a2b3;
+    --c-soft: #f0f2f5;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* 顶部 */
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, #2f6bff, #6a5cff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #fff;
+  }
+  .brand h1 { font-size: 20px; font-weight: 700; }
+  .brand p { font-size: 12px; color: var(--muted); }
+
+  /* 统计条 */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .num { font-size: 26px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat.s .num { color: var(--s); }
+  .stat.a .num { color: var(--a); }
+
+  /* 工具行 */
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--card); cursor: pointer; font-size: 13px; color: var(--muted);
+    transition: all .15s;
+  }
+  .chip:hover { border-color: var(--primary); color: var(--primary); }
+  .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .toolbar .spacer { flex: 1; }
+  .btn {
+    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: all .15s;
+  }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .btn.ghost:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* 岗位卡片 */
+  .job {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 12px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .job .top { display: flex; align-items: flex-start; gap: 10px; }
+  .badge {
+    flex-shrink: 0; min-width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px;
+  }
+  .badge.S { background: var(--s-soft); color: var(--s); }
+  .badge.A { background: var(--a-soft); color: var(--a); }
+  .badge.B { background: var(--b-soft); color: var(--b); }
+  .badge.C { background: var(--c-soft); color: var(--c); }
+  .job h3 { font-size: 15px; font-weight: 700; }
+  .job .meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 2px; }
+  .job .meta b { color: var(--text); font-weight: 600; }
+  .job .salary { color: #e5484d; font-weight: 700; font-size: 14px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 12px; padding: 3px 10px; border-radius: 6px;
+    background: var(--primary-soft); color: var(--primary);
+  }
+  .tag.off { background: var(--c-soft); color: var(--muted); text-decoration: line-through; }
+  .job .bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .scoreline { font-size: 12px; color: var(--muted); }
+  .scoreline b { color: var(--text); font-size: 14px; }
+  .actions { display: flex; gap: 6px; }
+  .mini {
+    font-size: 12px; padding: 5px 12px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--card); cursor: pointer; color: var(--muted); transition: all .15s;
+  }
+  .mini:hover { border-color: var(--primary); color: var(--primary); }
+  .mini.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .mini.green.on { background: var(--s); border-color: var(--s); }
+  .mini.red.on { background: #e5484d; border-color: #e5484d; color: #fff; }
+  .job .url { font-size: 12px; color: var(--primary); text-decoration: none; }
+  .job .url:hover { text-decoration: underline; }
+
+  .empty { text-align: center; color: var(--muted); padding: 60px 0; }
+  .empty .big { font-size: 40px; margin-bottom: 10px; }
+
+  /* 添加弹窗 */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(16,24,40,.45);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 14px; padding: 22px; width: 640px; max-width: 92vw;
+    max-height: 86vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 14px; }
+  .modal input, .modal textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; font-size: 13px; font-family: inherit; margin-bottom: 10px;
+  }
+  .modal textarea { min-height: 220px; resize: vertical; }
+  .modal .row { display: flex; gap: 10px; }
+  .modal .row > div { flex: 1; }
+  .modal label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">📡</div>
+      <div>
+        <h1>Job Radar</h1>
+        <p>岗位筛选器 · 本地仪表盘</p>
+      </div>
+    </div>
+    <button class="btn primary" onclick="openModal()">＋ 添加 JD</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar" id="filters"></div>
+
+  <div id="list"></div>
+
+  <footer>数据仅存本地 · 私有仓库同步 · job-radar v0.1</footer>
+</div>
+
+<!-- 添加弹窗 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>➕ 添加岗位 JD</h2>
+    <div>
+      <label>JD 全文(必填)</label>
+      <textarea id="jd-text" placeholder="粘贴岗位描述..."></textarea>
+    </div>
+    <div class="row">
+      <div><label>标题(选填)</label><input id="jd-title" placeholder="如:高级后端工程师"></div>
+      <div><label>公司(选填)</label><input id="jd-company" placeholder="如:字节跳动"></div>
+    </div>
+    <div><label>链接(选填)</label><input id="jd-url" placeholder="https://..."></div>
+    <div class="foot">
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="submitJd()">解析并打分</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GRADE_ORDER = ["S", "A", "B", "C"];
+let state = { grade: "all", status: "all", jobs: [], stats: {} };
+
+const STATUS_LABEL = {
+  new: "新发现", applied: "已投递", interested: "有意向", rejected: "已放弃"
+};
+const STATUS_CLASS = { new: "", applied: "green", interested: "", rejected: "red" };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.text()) || r.status);
+  return r.json();
+}
+
+async function load() {
+  const q = [];
+  if (state.grade !== "all") q.push("grade=" + state.grade);
+  if (state.status !== "all") q.push("status=" + state.status);
+  const qs = q.length ? "?" + q.join("&") : "";
+  const data = await api("/api/jobs" + qs);
+  state.jobs = data.jobs;
+  state.stats = await api("/api/stats");
+  render();
+}
+
+function renderStats() {
+  const s = state.stats;
+  const items = [
+    ["总数", s.total || 0, ""],
+    ["S 级强匹配", s.s_count || 0, "s"],
+    ["A 级可投", s.a_count || 0, "a"],
+    ["已投递", s.applied_count || 0, ""],
+  ];
+  document.getElementById("stats").innerHTML = items.map(([label, num, cls]) =>
+    `<div class="stat ${cls}"><div class="num">${num}</div><div class="label">${label}</div></div>`
+  ).join("");
+}
+
+function renderFilters() {
+  const grades = [
+    ["all", "全部"],
+    ...GRADE_ORDER.map(g => [g, `${g} 级`]),
+  ];
+  const statuses = [
+    ["all", "全部状态"],
+    ["new", "新发现"], ["applied", "已投递"], ["interested", "有意向"], ["rejected", "已放弃"],
+  ];
+  let html = grades.map(([v, label]) =>
+    `<button class="chip ${state.grade === v ? "active" : ""}" onclick="setGrade('${v}')">${label}</button>`
+  ).join("");
+  html += `<span class="spacer"></span>`;
+  html += statuses.map(([v, label]) =>
+    `<button class="chip ${state.status === v ? "active" : ""}" onclick="setStatus('${v}')">${label}</button>`
+  ).join("");
+  document.getElementById("filters").innerHTML = html;
+}
+
+function setGrade(g) { state.grade = g; load(); }
+function setStatus(s) { state.status = s; load(); }
+
+function esc(s) {
+  return (s || "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderList() {
+  const el = document.getElementById("list");
+  if (!state.jobs.length) {
+    el.innerHTML = `<div class="empty"><div class="big">🛰️</div>暂无岗位<br>点击右上角「添加 JD」或先跑 <b>python main.py fetch</b></div>`;
+    return;
+  }
+  el.innerHTML = state.jobs.map(j => {
+    const salary = j.salary_min ? `${j.salary_min/1000}-${(j.salary_max||0)/1000}K` : "";
+    const tags = (j.details && j.details.skill_hits) || [];
+    const reasons = j.reasons || [];
+    const detailHtml = reasons.length
+      ? `<div class="tags"><span class="tag off">未通过:${esc(reasons.join("；"))}</span></div>`
+      : (tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : "");
+    const actions = ["new", "interested", "applied", "rejected"].map(st =>
+      `<button class="mini ${STATUS_CLASS[st]} ${j.status === st ? "on" : ""}" onclick="mark('${j.id}','${st}')">${STATUS_LABEL[st]}</button>`
+    ).join("");
+    return `
+      <div class="job" id="job-${j.id}">
+        <div class="top">
+          <div class="badge ${j.grade || "C"}">${j.grade || "C"}</div>
+          <div style="flex:1">
+            <h3>${esc(j.title) || "(无标题)"} ${j.url ? `<a class="url" href="${esc(j.url)}" target="_blank">🔗</a>` : ""}</h3>
+            <div class="meta">
+              <span>🏢 <b>${esc(j.company) || "-"}</b></span>
+              <span>📍 ${esc(j.city) || "-"}</span>
+              ${salary ? `<span class="salary">💰 ${salary}</span>` : ""}
+              <span>🎓 ${esc(j.education) || "-"}</span>
+              <span>⏳ ${esc(j.experience_text) || "-"}</span>
+              <span>🕒 ${esc(j.published) || "-"}</span>
+            </div>
+          </div>
+          <div class="scoreline">评分 <b>${j.score ?? 0}</b></div>
+        </div>
+        ${detailHtml}
+        <div class="bottom">
+          <span style="font-size:12px;color:var(--muted)">来源:${esc(j.source || "manual")}</span>
+          <div class="actions">${actions}</div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function render() {
+  renderStats();
+  renderFilters();
+  renderList();
+}
+
+async function mark(id, status) {
+  await api(`/api/jobs/${id}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  load();
+}
+
+function openModal() { document.getElementById("overlay").classList.add("open"); }
+function closeModal() {
+  document.getElementById("overlay").classList.remove("open");
+  ["jd-text", "jd-title", "jd-company", "jd-url"].forEach(i => document.getElementById(i).value = "");
+}
+
+async function submitJd() {
+  const text = document.getElementById("jd-text").value.trim();
+  if (!text) { alert("请粘贴 JD 内容"); return; }
+  const body = {
+    text,
+    title: document.getElementById("jd-title").value.trim(),
+    company: document.getElementById("jd-company").value.trim(),
+    url: document.getElementById("jd-url").value.trim(),
+  };
+  try {
+    await api("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    closeModal();
+    state.grade = "all"; state.status = "all";
+    load();
+  } catch (e) {
+    alert("添加失败:" + e.message);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

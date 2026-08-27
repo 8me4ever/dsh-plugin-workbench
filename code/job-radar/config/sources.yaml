@@ -1,0 +1,20 @@
+# 聚合订阅源配置 —— 在这里添加你想监控的 RSS/Atom 源
+# 支持:公司官网招聘 RSS、RSSHub 路由、任何符合 RSS/Atom 规范的招聘源
+#
+# RSSHub 常用招聘路由示例(需自建实例或使用公共实例,公共实例可能不稳定):
+#   BOSS直聘(部分路由): https://rsshub.app/boss/zhaopin/{city}/{keyword}
+#   建议先测通一个源再批量加;抓取失败不会中断其他源。
+#
+# 注意:URL 中的特殊字符(如 #、&)在 YAML 中不需要转义,但中文建议用 URL 编码。
+
+sources:
+  - name: "示例源-Lagou(测试用,可能失效)"
+    url: "https://rsshub.app/lagou/jobs/后端/北京"
+    enabled: false
+    company: ""
+
+  # 真实可用的源示例(公司官网招聘页 RSS,找到后替换):
+  - name: "公司A-招聘"
+    url: "https://example.com/careers/feed.xml"
+    enabled: false
+    company: "公司A"
