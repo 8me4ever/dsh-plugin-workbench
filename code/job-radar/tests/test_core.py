@@ -9,6 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.greeting import generate_greeting  # noqa: E402
 from src.parser import parse_jd  # noqa: E402
 from src.scorer import Scorer  # noqa: E402
 from src.storage import Storage  # noqa: E402
@@ -185,3 +186,33 @@ class TestImportExportRoundtrip:
             assert r["status"] == o["status"]
             assert r["reasons"] == o["reasons"]
             assert r["details"] == o["details"]
+
+
+# ---------- 打招呼语 ----------
+
+class TestGreeting:
+    def test_greeting_personalized(self):
+        profile = {
+            "personal": {
+                "name": "陈梓铭",
+                "headline": "伯明翰大学数据科学硕士",
+                "highlights": ["曾任数据咨询主管"],
+            }
+        }
+        job = {
+            "title": "数据分析师",
+            "company": "示例科技",
+            "details": {"skill_hits": ["Python", "SQL", "数据可视化", "机器学习"]},
+        }
+        g = generate_greeting(profile, job)
+        assert "陈梓铭" in g
+        assert "数据分析师" in g
+        assert "示例科技" in g
+        assert "Python" in g and "SQL" in g
+
+    def test_greeting_minimal(self):
+        profile = {"personal": {"name": "陈梓铭", "headline": "", "highlights": []}}
+        job = {"title": "后端工程师", "company": "", "details": {}}
+        g = generate_greeting(profile, job)
+        assert "陈梓铭" in g
+        assert "后端工程师" in g

@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .greeting import generate_greeting
 from .parser import parse_jd
 from .scorer import Scorer
 from .storage import Storage, ALL_STATUS
@@ -65,11 +66,28 @@ def index() -> FileResponse:
 
 
 @app.get("/api/jobs")
-def list_jobs(grade: str | None = None, status: str | None = None) -> dict:
+def list_jobs(
+    grade: str | None = None,
+    status: str | None = None,
+    days: int | None = None,
+) -> dict:
     storage = _storage()
     try:
-        jobs = storage.all_jobs(grade=grade, status=status)
+        jobs = storage.all_jobs(grade=grade, status=status, days=days)
         return {"jobs": jobs, "total": len(jobs)}
+    finally:
+        storage.close()
+
+
+@app.get("/api/jobs/{jid}/greeting")
+def get_greeting(jid: str) -> dict:
+    storage = _storage()
+    try:
+        job = storage.get(jid)
+        if job is None:
+            raise HTTPException(404, f"岗位不存在:{jid}")
+        greeting = generate_greeting(_profile(), job)
+        return {"id": jid, "greeting": greeting}
     finally:
         storage.close()
 

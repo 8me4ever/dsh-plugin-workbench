@@ -185,9 +185,23 @@
   </div>
 </div>
 
+<!-- 打招呼语弹窗 -->
+<div class="overlay" id="greet-overlay">
+  <div class="modal">
+    <h2>💬 打招呼语</h2>
+    <div id="greet-job" style="font-size:13px;color:var(--muted);margin-bottom:8px;"></div>
+    <textarea id="greet-text" style="min-height:140px;" readonly></textarea>
+    <div class="foot">
+      <button class="btn ghost" onclick="closeGreeting()">关闭</button>
+      <button class="btn ghost" onclick="copyGreeting()">📋 复制</button>
+      <a id="greet-link" class="btn primary" target="_blank" rel="noopener" style="display:none;text-decoration:none;color:#fff;">打开岗位 ↗</a>
+    </div>
+  </div>
+</div>
+
 <script>
 const GRADE_ORDER = ["S", "A", "B", "C"];
-let state = { grade: "all", status: "all", jobs: [], stats: {} };
+let state = { grade: "all", status: "all", days: 0, jobs: [], stats: {} };
 
 const STATUS_LABEL = {
   new: "新发现", applied: "已投递", interested: "有意向", rejected: "已放弃"
@@ -204,6 +218,7 @@ async function load() {
   const q = [];
   if (state.grade !== "all") q.push("grade=" + state.grade);
   if (state.status !== "all") q.push("status=" + state.status);
+  if (state.days) q.push("days=" + state.days);
   const qs = q.length ? "?" + q.join("&") : "";
   const data = await api("/api/jobs" + qs);
   state.jobs = data.jobs;
@@ -214,8 +229,8 @@ async function load() {
 function renderStats() {
   const s = state.stats;
   const items = [
-    ["总数", s.total || 0, ""],
-    ["S 级强匹配", s.s_count || 0, "s"],
+    ["今日新增", s.today_count || 0, ""],
+    ["待投递", s.new_count || 0, ""],
     ["A 级可投", s.a_count || 0, "a"],
     ["已投递", s.applied_count || 0, ""],
   ];
@@ -233,7 +248,8 @@ function renderFilters() {
     ["all", "全部状态"],
     ["new", "新发现"], ["applied", "已投递"], ["interested", "有意向"], ["rejected", "已放弃"],
   ];
-  let html = grades.map(([v, label]) =>
+  let html = `<button class="chip ${state.days ? "active" : ""}" onclick="toggleToday()">🕒 今日新增</button>`;
+  html += grades.map(([v, label]) =>
     `<button class="chip ${state.grade === v ? "active" : ""}" onclick="setGrade('${v}')">${label}</button>`
   ).join("");
   html += `<span class="spacer"></span>`;
@@ -245,6 +261,7 @@ function renderFilters() {
 
 function setGrade(g) { state.grade = g; load(); }
 function setStatus(s) { state.status = s; load(); }
+function toggleToday() { state.days = state.days ? 0 : 1; load(); }
 
 function esc(s) {
   return (s || "").replace(/[&<>"']/g, c =>
@@ -264,7 +281,10 @@ function renderList() {
     const detailHtml = reasons.length
       ? `<div class="tags"><span class="tag off">未通过:${esc(reasons.join("；"))}</span></div>`
       : (tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : "");
-    const actions = ["new", "interested", "applied", "rejected"].map(st =>
+    const greetBtn = (j.grade && j.grade !== "C")
+      ? `<button class="mini" onclick="showGreeting('${j.id}')">💬 打招呼</button>`
+      : "";
+    const actions = greetBtn + ["new", "interested", "applied", "rejected"].map(st =>
       `<button class="mini ${STATUS_CLASS[st]} ${j.status === st ? "on" : ""}" onclick="mark('${j.id}','${st}')">${STATUS_LABEL[st]}</button>`
     ).join("");
     return `
@@ -335,6 +355,44 @@ async function submitJd() {
   } catch (e) {
     alert("添加失败:" + e.message);
   }
+}
+
+// ---------- 打招呼语 ----------
+
+async function showGreeting(id) {
+  const job = state.jobs.find(j => j.id === id);
+  if (!job) return;
+  try {
+    const data = await api(`/api/jobs/${id}/greeting`);
+    document.getElementById("greet-job").textContent =
+      `${job.title || "(无标题)"} · ${job.company || "-"} · ${job.city || "-"}`;
+    document.getElementById("greet-text").value = data.greeting;
+    const link = document.getElementById("greet-link");
+    if (job.url) {
+      link.href = job.url;
+      link.style.display = "inline-block";
+    } else {
+      link.style.display = "none";
+    }
+    document.getElementById("greet-overlay").classList.add("open");
+  } catch (e) {
+    alert("获取打招呼语失败:" + e.message);
+  }
+}
+
+function closeGreeting() {
+  document.getElementById("greet-overlay").classList.remove("open");
+}
+
+async function copyGreeting() {
+  const t = document.getElementById("greet-text").value;
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch (e) {
+    document.getElementById("greet-text").select();
+    document.execCommand("copy");
+  }
+  alert("已复制到剪贴板，去 BOSS 粘贴发送即可");
 }
 
 load();

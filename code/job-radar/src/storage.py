@@ -11,7 +11,7 @@ import json
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .parser import ParsedJD
@@ -152,7 +152,12 @@ class Storage:
 
     # ---------- 查询 ----------
 
-    def all_jobs(self, grade: str | None = None, status: str | None = None) -> list[dict]:
+    def all_jobs(
+        self,
+        grade: str | None = None,
+        status: str | None = None,
+        days: int | None = None,
+    ) -> list[dict]:
         sql = "SELECT * FROM jobs WHERE 1=1"
         params: list = []
         if grade:
@@ -161,6 +166,12 @@ class Storage:
         if status:
             sql += " AND status=?"
             params.append(status)
+        if days:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(
+                timespec="seconds"
+            )
+            sql += " AND created_at >= ?"
+            params.append(cutoff)
         sql += " ORDER BY score DESC"
         rows = self._conn.execute(sql, params).fetchall()
         out = []
@@ -181,12 +192,18 @@ class Storage:
         return d
 
     def stats(self) -> dict:
+        today_cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(
+            timespec="seconds"
+        )
         row = self._conn.execute(
             "SELECT COUNT(*) AS total, "
             "SUM(CASE WHEN grade='S' THEN 1 ELSE 0 END) AS s_count, "
             "SUM(CASE WHEN grade='A' THEN 1 ELSE 0 END) AS a_count, "
-            "SUM(CASE WHEN status='applied' THEN 1 ELSE 0 END) AS applied_count "
-            "FROM jobs"
+            "SUM(CASE WHEN status='applied' THEN 1 ELSE 0 END) AS applied_count, "
+            "SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS today_count, "
+            "SUM(CASE WHEN status='new' THEN 1 ELSE 0 END) AS new_count "
+            "FROM jobs",
+            (today_cutoff,),
         ).fetchone()
         return dict(row)
 
