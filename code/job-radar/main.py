@@ -84,8 +84,9 @@ def cmd_add_file(args: argparse.Namespace) -> int:
     text = p.read_text(encoding="utf-8")
     profile = load_profile()
     scorer = Scorer(profile)
+    # 仅显式传入时覆盖,否则由解析器从 JD 文本自动提取标题/公司
     jid, job = process_jd(text, profile, scorer,
-                          title=args.title or p.stem, company=args.company)
+                          title=args.title or "", company=args.company or "")
     print(f"✅ 已入库  [{job['grade']}] {job['title']}  id={jid}  评分:{job['score']}")
     return 0
 

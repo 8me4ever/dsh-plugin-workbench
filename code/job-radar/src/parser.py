@@ -61,10 +61,21 @@ _CITY_KEYWORDS = [
     "佛山", "宁波", "无锡", "福州", "济南", "大连", "沈阳", "昆明", "远程",
 ]
 
-# 发布时间关键词
+# 发布/标题/公司关键词
 _PUBLISH_PATTERNS = [
     re.compile(r"(?:发布于|发布时间|更新于)?\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})"),
     re.compile(r"(\d+)\s*(?:天|小时|分钟)\s*(?:前|以内)"),
+]
+
+_TITLE_PATTERNS = [
+    re.compile(r"岗位(?:名称|名|标题)?\s*[:：]\s*([^\n\r,，。]+)"),
+    re.compile(r"职位(?:名称|名|标题)?\s*[:：]\s*([^\n\r,，。]+)"),
+    re.compile(r"招聘\s*[:：]\s*([^\n\r,，。]+)"),
+]
+
+_COMPANY_PATTERNS = [
+    re.compile(r"公司(?:名称|名)?\s*[:：]\s*([^\n\r,，。]+)"),
+    re.compile(r"企业(?:名称|名)?\s*[:：]\s*([^\n\r,，。]+)"),
 ]
 
 
@@ -124,6 +135,15 @@ def _parse_published(text: str) -> str:
     return ""
 
 
+def _extract_field(text: str, patterns: list[re.Pattern]) -> str:
+    """从文本中提取字段(取第一个命中的完整行内容)。"""
+    for pat in patterns:
+        m = pat.search(text)
+        if m:
+            return m.group(1).strip()
+    return ""
+
+
 def parse_jd(
     text: str,
     plus_skills: list[str] | None = None,
@@ -145,6 +165,12 @@ def parse_jd(
     exp_min, exp_max, exp_text = _parse_experience(text)
     education = _parse_education(text)
     city = _parse_city(text)
+
+    # 标题/公司:优先用调用方传入值,否则从 JD 文本提取
+    if not title:
+        title = _extract_field(text, _TITLE_PATTERNS)
+    if not company:
+        company = _extract_field(text, _COMPANY_PATTERNS)
 
     # 技能命中:大小写不敏感
     text_lower = text.lower()
