@@ -50,3 +50,7 @@ code/job-radar/data/.boss_profile/
 code/job-radar/data/boss_*.png
 code/job-radar/data/boss_*.html
 code/job-radar/data/boss_*.json
+
+# dsh-job-radar 插件(node_modules 不入库;源码 + 构建产物入库)
+code/job-radar/plugin/**/node_modules/
+code/job-radar/plugin/**/pnpm-lock.yaml
