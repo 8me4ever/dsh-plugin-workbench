@@ -1,18 +1,18 @@
-"""BOSS直聘 采集器(登录与抓取解耦)。
+"""BOSS直聘 采集器(API 通道)。
 
-设计:
-  - 登录(login)与抓取(fetch)完全分开。登录是你本人手动扫码的一次性动作,
-    登录态(cookie)保存到 data/.boss_profile(已 gitignore)。
-  - 抓取前先「检查登录态」,已登录才继续,未登录则直接提示,绝不碰登录页。
+核心思路(2026-08-28 重写):
+  - BOSS 页面自动化访问会被反爬拦截(about:blank),但登录态 cookie 有效;
+  - 改用官方搜索 API(wapi/zpgeek/search/joblist.json),带完整浏览器请求头
+    (UA/Referer/Origin/Sec-Fetch)即可绕过环境风控,稳定拿到结构化 JSON。
+  - 登录(login)仍由用户手动扫码一次性完成,登录态保存在 data/.boss_profile。
 
 用法:
-  python scripts/boss.py check    # 只检查是否已登录
-  python scripts/boss.py login    # 打开浏览器窗口,等你手动扫码登录(保存登录态)
-  python scripts/boss.py fetch    # 检查登录态 → 抓取「数据分析·北京」岗位
+  python scripts/boss.py check     # 用 API 探测登录态是否有效(无需打开浏览器页面)
+  python scripts/boss.py fetch     # 抓取「数据分析·北京」岗位 → 入库打分(需已登录)
+  python scripts/boss.py fetch --query python --city 101010100 --pages 2
+  python scripts/boss.py login     # (旧)打开浏览器窗口手动扫码,一般用 boss_open.py 代替
 
-网络说明:
-  本机 Clash 的 fake-ip DNS 会把 zhipin.com 错解析到百度,故用 direct + 真实 IP 映射绕过;
-  同时隐藏 navigator.webdriver,避免触发 BOSS 反爬安全校验(否则登录页会不停刷新)。
+需要先运行一次: python -m playwright install chromium
 """
 from __future__ import annotations
 
@@ -21,233 +21,215 @@ import json
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 PROFILE_DIR = DATA / ".boss_profile"
-QR_PATH = DATA / "boss_qr.png"
-HTML_PATH = DATA / "boss_search.html"
-SHOT_PATH = DATA / "boss_search.png"
-RESULT_PATH = DATA / "boss_result.json"
 
-SEARCH_URL = (
-    "https://www.zhipin.com/web/geek/job"
-    "?query=%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90&city=101010100"  # 数据分析·北京
+# 搜索 API 与页面 Referer
+SEARCH_API = "https://www.zhipin.com/wapi/zpgeek/search/joblist.json"
+SEARCH_PAGE = "https://www.zhipin.com/web/geek/job"
+
+# 城市:101010100=北京,101280600=深圳
+CITY_BEIJING = "101010100"
+CITY_SHENZHEN = "101280600"
+
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
 )
 
-# zhipin 各子域名真实 IP(DoH 查询,绕过 Clash fake-ip 错配)
-_ZHIPIN_IP = {
-    "www.zhipin.com": "211.159.143.184",
-    "api.zhipin.com": "49.233.246.183",
-    "static.zhipin.com": "101.73.101.60",
-    "img.bosszhipin.com": "119.249.48.19",
-    "s.zhipin.com": "39.96.33.114",
-}
-_ZHIPIN_FALLBACK = {
-    "*.zhipin.com": "211.159.143.184",
-    "*.bosszhipin.com": "119.249.48.19",
-}
-
-# 岗位卡片 / 登录页标志选择器
-CARD_SELECTORS = [
-    ".job-card-wrapper", ".job-card-box", ".job-list-box li", ".job-list li",
-]
-LOGIN_SELECTORS = [
-    ".login-entry-page", ".login-register-content", ".ewm-switch", ".login-phone-wrapper",
-]
+# 抓取任务:默认「数据分析·北京」(可在 fetch 参数覆盖)
+DEFAULT_TASK = {"query": "数据分析", "city": CITY_BEIJING}
 
 
 def log(msg: str) -> None:
     print(f"[BOSS] {msg}", flush=True)
 
 
-def build_host_resolver_rules() -> str:
-    rules = [f"MAP {h} {ip}" for h, ip in _ZHIPIN_IP.items()]
-    rules += [f"MAP {h} {ip}" for h, ip in _ZHIPIN_FALLBACK.items()]
-    return ", ".join(rules)
+def launch_context(p, channel: str = ""):
+    """打开窗口模式浏览器(供 boss_open.py 手动登录/刷新会话使用)。
 
-
-def launch_context(p, channel: str = "msedge"):
+    默认用 playwright 自带 Chromium + 独立 profile;带反检测初始化脚本。
+    """
     ctx = p.chromium.launch_persistent_context(
         user_data_dir=str(PROFILE_DIR),
         headless=False,
-        channel=channel,
+        channel=channel or None,
         args=[
             "--proxy-server=direct://",
-            f"--host-resolver-rules={build_host_resolver_rules()}",
             "--disable-blink-features=AutomationControlled",
+            "--no-first-run",
+            "--no-default-browser-check",
         ],
         viewport={"width": 1280, "height": 900},
     )
     ctx.add_init_script(
-        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+        """
+        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+        Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh']});
+        Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+        window.chrome = window.chrome || {runtime: {}};
+        """
     )
     return ctx
 
 
-def has_cards(page) -> bool:
-    for sel in CARD_SELECTORS:
-        if page.locator(sel).count() > 0:
-            return True
-    return False
+def api_headers(query: str, city: str) -> dict:
+    ref = f"{SEARCH_PAGE}?query={quote(query)}&city={city}"
+    return {
+        "User-Agent": UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Referer": ref,
+        "Origin": "https://www.zhipin.com",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
 
 
-def has_login(page) -> bool:
-    for sel in LOGIN_SELECTORS:
-        if page.locator(sel).count() > 0:
-            return True
-    return "/web/user/" in page.url or "登录" in page.title()
+def fetch_jobs_page(
+    ctx, query: str, city: str, page: int, page_size: int = 30,
+    retries: int = 3,
+) -> tuple[int, list[dict]]:
+    """请求一页岗位。返回 (code, jobList)。
 
-
-def wait_any(page, selectors: list[str], timeout_s: int = 45) -> str | None:
-    for sel in selectors:
+    风控说明:BOSS 对高频请求限流(code=37 环境异常)。连续请求间固定间隔,
+    失败时指数退避重试;多次失败说明被标记,需冷却或重新登录。
+    """
+    req = ctx.request
+    params = {
+        "scene": "1", "query": query, "city": city,
+        "page": str(page), "pageSize": str(page_size),
+    }
+    last_code = -1
+    for attempt in range(1, retries + 1):
+        if attempt > 1:
+            wait = min(30, 5 * (2 ** (attempt - 1)))  # 5s, 10s, 20s 退避
+            log(f"重试 {attempt}/{retries}(等待 {wait}s)...")
+            time.sleep(wait)
         try:
-            page.wait_for_selector(sel, timeout=timeout_s * 1000)
-            return sel
-        except Exception:  # noqa: BLE001
+            r = req.get(SEARCH_API, params=params, headers=api_headers(query, city), timeout=30000)
+            data = r.json()
+        except Exception as exc:  # noqa: BLE001
+            log(f"请求异常: {str(exc)[:100]}")
+            last_code = -1
             continue
-    return None
+        last_code = data.get("code")
+        if last_code == 0:
+            zp = data.get("zpData", {}) or {}
+            return 0, zp.get("jobList", [])
+        log(f"code={last_code} message={data.get('message')}")
+        if last_code != 37:
+            break  # 非风控错误,不重试
+    return last_code, []
 
 
-def check_login(page) -> bool:
-    """导航到搜索页,判断是否已登录。返回 True=已登录。"""
-    page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)
-    wait_any(page, CARD_SELECTORS + LOGIN_SELECTORS, timeout_s=45)
-    page.wait_for_timeout(2000)
-    if has_cards(page):
+def check_login(ctx) -> bool:
+    """用 API 探测登录态:code=0 且有数据 → 已登录;code=37 → 环境异常/未登录。"""
+    code, jobs = fetch_jobs_page(ctx, "数据分析", CITY_BEIJING, 1, 5)
+    if code == 0:
         return True
-    if has_login(page):
-        return False
+    if code == 37:
+        log("API 返回「环境存在异常」——可能是未登录或风控")
     return False
 
 
-def extract_cards(page) -> list[dict]:
-    items = page.query_selector_all(
-        ".job-card-wrapper, .job-card-box, .job-list-box li, .job-list li"
-    )
-    cards = []
-    for it in items:
-        def text(sel):
-            el = it.query_selector(sel)
-            return el.inner_text().strip() if el else ""
-
-        card = {
-            "title": text(".job-name") or text(".job-title") or text(".job-info .job-name"),
-            "salary": text(".salary") or text(".job-salary"),
-            "company": text(".company-name") or text(".boss-name") or text(".company-text"),
-            "area": text(".job-area") or text(".job-location"),
-            "tags": text(".tag-list") or text(".job-info"),
-            "link": "",
-        }
-        a = it.query_selector("a[href*='/job_detail/'], a[href*='job_detail']")
-        if a:
-            card["link"] = a.get_attribute("href") or ""
-        cards.append(card)
-    return cards
+def to_job_dict(j: dict) -> dict:
+    """把 BOSS API 岗位字段映射为 job-radar 通用字典。"""
+    return {
+        "title": j.get("jobName", ""),
+        "company": j.get("brandName", ""),
+        "city": j.get("cityName", ""),
+        "salary_desc": j.get("salaryDesc", ""),
+        "experience": j.get("jobExperience", ""),
+        "education": j.get("jobDegree", ""),
+        "skills": j.get("skills", []),
+        "welfare": j.get("welfareList", []),
+        "stage": j.get("brandStageName", ""),
+        "scale": j.get("brandScaleName", ""),
+        "industry": j.get("brandIndustry", ""),
+        "district": j.get("areaDistrict", ""),
+        "url": f"https://www.zhipin.com/job_detail/{j.get('encryptJobId')}.html",
+    }
 
 
 def cmd_check() -> int:
     with sync_playwright() as p:
-        ctx = launch_context(p)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        ok = check_login(page)
-        if ok:
-            log("✅ 已登录 BOSS直聘")
-        else:
-            log("❌ 未登录。请运行: python scripts/boss.py login")
-        ctx.close()
-    return 0 if ok else 1
-
-
-def cmd_login(timeout_s: int = 360) -> int:
-    with sync_playwright() as p:
-        ctx = launch_context(p)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)
-        wait_any(page, CARD_SELECTORS + LOGIN_SELECTORS, timeout_s=45)
-        page.wait_for_timeout(2000)
-
-        if has_cards(page):
-            log("✅ 已处于登录状态,无需再次登录")
-            ctx.close()
-            return 0
-
-        page.screenshot(path=str(QR_PATH))
-        log(f"登录页截图已保存: {QR_PATH}")
-        log(">>> 请在 Edge 窗口里手动扫码登录(用 BOSS直聘 APP 扫二维码,或在页面里自己选择登录方式) <<<")
-        log(f"等待登录完成(最长 {timeout_s} 秒)...")
-
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
-            time.sleep(4)
-            if has_cards(page):
-                log("✅ 检测到岗位列表,登录成功,登录态已保存")
-                ctx.close()
-                return 0
-            if not has_login(page):
-                log("✅ 登录页已消失,疑似登录成功,登录态已保存")
-                ctx.close()
-                return 0
-        log("❌ 登录超时,未检测到登录成功")
-        ctx.close()
-        return 2
-
-
-def cmd_fetch() -> int:
-    with sync_playwright() as p:
-        ctx = launch_context(p)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-
-        log("检查登录态...")
-        if not check_login(page):
-            log("❌ 未登录,中止抓取。请先运行: python scripts/boss.py login")
-            ctx.close()
-            return 1
-
-        log("已登录,开始抓取...")
-        page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)
-        wait_any(page, CARD_SELECTORS, timeout_s=30)
-        page.wait_for_timeout(4000)
-        for _ in range(4):
-            page.mouse.wheel(0, 3000)
-            time.sleep(1.5)
-        page.wait_for_timeout(2000)
-
-        html = page.content()
-        HTML_PATH.write_text(html, encoding="utf-8")
-        log(f"已保存页面 HTML: {HTML_PATH}")
-        page.screenshot(path=str(SHOT_PATH), full_page=True)
-        log(f"已保存整页截图: {SHOT_PATH}")
-
-        cards = extract_cards(page)
-        log(f"提取到岗位卡片: {len(cards)} 条")
-        RESULT_PATH.write_text(
-            json.dumps(cards, ensure_ascii=False, indent=2), encoding="utf-8"
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=str(PROFILE_DIR), headless=True,
         )
-        log(f"已保存提取结果: {RESULT_PATH}")
-        if cards:
-            log("前 5 条示例:")
-            for c in cards[:5]:
-                log(f"  {c['title']} | {c['salary']} | {c['company']} | {c['area']}")
+        try:
+            if check_login(ctx):
+                log("✅ 登录态有效,API 可正常拉取岗位")
+                return 0
+            log("❌ 未登录或环境异常。请先运行: python scripts/boss_open.py 手动扫码登录")
+            return 1
+        finally:
+            ctx.close()
 
-        ctx.close()
+
+def cmd_fetch(args: argparse.Namespace) -> int:
+    query = args.query or DEFAULT_TASK["query"]
+    city = args.city or DEFAULT_TASK["city"]
+    pages = args.pages or 1
+
+    with sync_playwright() as p:
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=str(PROFILE_DIR), headless=True,
+        )
+        try:
+            if not check_login(ctx):
+                log("❌ 未登录,中止抓取。请先运行 boss_open.py 手动登录")
+                return 1
+            all_jobs: list[dict] = []
+            for pg in range(1, pages + 1):
+                code, jobs = fetch_jobs_page(ctx, query, city, pg)
+                if code != 0:
+                    log(f"第 {pg} 页失败 code={code},停止抓取")
+                    break
+                all_jobs.extend(jobs)
+                log(f"第 {pg} 页: {len(jobs)} 条")
+                time.sleep(3.0)  # 页间温和限速,避免触发风控
+            log(f"共获取 {len(all_jobs)} 条岗位")
+        finally:
+            ctx.close()
+
+    # 落盘原始结果 + 映射为标准字段
+    DATA.mkdir(parents=True, exist_ok=True)
+    raw_path = DATA / "boss_result.json"
+    raw_path.write_text(
+        json.dumps(all_jobs, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    mapped = [to_job_dict(j) for j in all_jobs]
+    mapped_path = DATA / "boss_jobs.json"
+    mapped_path.write_text(
+        json.dumps(mapped, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    log(f"原始数据: {raw_path} ({len(all_jobs)} 条)")
+    log(f"标准字段: {mapped_path}")
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="BOSS直聘 采集器")
-    ap.add_argument("cmd", choices=["check", "login", "fetch"])
-    ap.add_argument("--timeout", type=int, default=360, help="login 等待扫码的秒数")
+    ap = argparse.ArgumentParser(description="BOSS直聘 采集器(API 通道)")
+    ap.add_argument("cmd", choices=["check", "fetch", "login"])
+    ap.add_argument("--query", default=None, help="搜索关键词(默认:数据分析)")
+    ap.add_argument("--city", default=None, help="城市代码(默认北京 101010100)")
+    ap.add_argument("--pages", type=int, default=1, help="抓取页数(默认 1)")
     args = ap.parse_args()
 
-    DATA.mkdir(parents=True, exist_ok=True)
     if args.cmd == "check":
         return cmd_check()
-    if args.cmd == "login":
-        return cmd_login(args.timeout)
-    return cmd_fetch()
+    if args.cmd == "fetch":
+        return cmd_fetch(args)
+    # login 旧命令提示用 boss_open.py
+    print("[BOSS] 请使用 scripts/boss_open.py 打开浏览器窗口手动扫码登录")
+    return 1
 
 
 if __name__ == "__main__":

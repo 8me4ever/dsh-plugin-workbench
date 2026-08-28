@@ -82,14 +82,27 @@ class Scorer:
     # ---------- 软性评分 ----------
 
     def _skill_score(self, jd: ParsedJD) -> float:
-        """技能匹配度:命中加分技能的加权分 / 总权重 * 100。"""
+        """技能匹配度:基于命中技能的加权分,按命中数量与权重综合。
+
+        算法:命中加权分 hit_weight 与命中数量都参与——
+        - 命中的技能越多、权重越高,分数越高;
+        - 满分条件:命中核心权重(前若干技能)或命中 5+ 个技能。
+        """
         plus = self.profile.get("plus_skills", [])
-        total_weight = sum(p.get("weight", 0) for p in plus) or 1
+        # 按权重从高到低排序,取前 N 个视为「核心技能」
+        ordered = sorted(plus, key=lambda p: -p.get("weight", 0))
+        core_weight = sum(p.get("weight", 0) for p in ordered[:8]) or 1
         hit_weight = 0.0
+        hit_count = 0
         for p in plus:
             if p["name"].lower() in jd.raw.lower():
                 hit_weight += p.get("weight", 0)
-        return round(min(100, hit_weight / total_weight * 200), 1)
+                hit_count += 1
+        # 命中数贡献:0→0, 1→30, 2→50, 3→65, 4→78, 5+→90
+        count_score = {0: 0, 1: 30, 2: 50, 3: 65, 4: 78}.get(hit_count, 90)
+        # 权重贡献:命中核心权重占比
+        weight_score = min(100, hit_weight / core_weight * 100)
+        return round(max(count_score, weight_score), 1)
 
     def _experience_score(self, jd: ParsedJD) -> float:
         """经验契合:JD 要求的年限区间落在画像期望区间内 → 满分。"""

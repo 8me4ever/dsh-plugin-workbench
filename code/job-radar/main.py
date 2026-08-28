@@ -4,6 +4,7 @@
   python main.py add "JD文本" [--title 标题] [--company 公司] [--url 链接]
   python main.py add-file path/to/jd.txt [--title 标题]
   python main.py fetch               # 从聚合源抓取
+  python main.py fetch-boss [--pages 2]  # 读取 BOSS 采集结果(boss_jobs.json)入库打分
   python main.py list [--grade S] [--status new]
   python main.py score               # 对全部岗位重新打分(改画像后)
   python main.py mark <id> <status>  # 状态: new/applied/interested/rejected
@@ -114,6 +115,49 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fetch_boss(args: argparse.Namespace) -> int:
+    """读取 BOSS 采集结果(data/boss_jobs.json)入库打分。"""
+    src = ROOT / "data" / "boss_jobs.json"
+    if not src.exists():
+        print("❌ 未找到 data/boss_jobs.json。先运行: python scripts/boss.py fetch")
+        return 1
+    jobs = json.loads(src.read_text(encoding="utf-8"))
+    if not jobs:
+        print("ℹ️  boss_jobs.json 为空")
+        return 0
+
+    profile = load_profile()
+    scorer = Scorer(profile)
+    plus = plus_skill_names(profile)
+    storage = make_storage()
+    n = 0
+    for j in jobs:
+        # 把结构化字段组装成 JD 文本,交给解析器+打分器统一处理
+        parts = [
+            f"岗位名称:{j.get('title','')}",
+            f"公司名称:{j.get('company','')}",
+            f"工作地点:{j.get('city','')}",
+            f"薪资:{j.get('salary_desc','')}",
+            f"学历要求:{j.get('education','')}",
+            f"经验要求:{j.get('experience','')}",
+            f"技能:{'、'.join(j.get('skills',[]))}",
+            f"福利:{'、'.join(j.get('welfare',[]))}",
+            f"公司阶段:{j.get('stage','')}",
+            f"公司规模:{j.get('scale','')}",
+            f"行业:{j.get('industry','')}",
+        ]
+        text = "\n".join(p for p in parts if p.split(":", 1)[-1])
+        parsed = parse_jd(text, plus_skills=plus, title=j.get("title", ""),
+                          company=j.get("company", ""), url=j.get("url", ""))
+        result = scorer.score(parsed)
+        storage.upsert_job(parsed, score=result, source="boss")
+        n += 1
+    stats = storage.stats()
+    storage.close()
+    print(f"✅ BOSS 岗位入库 {n} 条,库内共 {stats['total']} 条")
+    return 0
+
+
 def cmd_list(args: argparse.Namespace) -> int:
     storage = make_storage()
     jobs = storage.all_jobs(grade=args.grade, status=args.status)
@@ -205,6 +249,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     pc = sub.add_parser("fetch", help="从聚合源抓取")
     pc.set_defaults(func=cmd_fetch)
+
+    pb = sub.add_parser("fetch-boss", help="BOSS 采集结果入库打分")
+    pb.add_argument("--pages", type=int, default=1, help="页数(仅提示用)")
+    pb.set_defaults(func=cmd_fetch_boss)
 
     pl = sub.add_parser("list", help="列出岗位")
     pl.add_argument("--grade", default=None, help="按等级过滤 S/A/B/C")

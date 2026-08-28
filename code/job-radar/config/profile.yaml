@@ -27,9 +27,9 @@ must_skills:
 # 加分技能:命中越多分越高(软性评分 · 技能匹配度)
 plus_skills:
   - name: "Python"
-    weight: 10
+    weight: 12
   - name: "SQL"
-    weight: 8
+    weight: 10
   - name: "数据分析"
     weight: 10
   - name: "数据可视化"
@@ -43,9 +43,9 @@ plus_skills:
   - name: "Excel"
     weight: 4
   - name: "Tableau"
-    weight: 5
+    weight: 6
   - name: "Power BI"
-    weight: 5
+    weight: 6
   - name: "数据清洗"
     weight: 5
   - name: "指标体系"
@@ -57,12 +57,28 @@ plus_skills:
   - name: "C++"
     weight: 3
   - name: "统计学"
-    weight: 5
+    weight: 6
   - name: "pandas"
-    weight: 4
+    weight: 5
+  - name: "numpy"
+    weight: 5
   - name: "数据产品"
     weight: 6
   - name: "商业分析"
+    weight: 5
+  - name: "AB测试"
+    weight: 5
+  - name: "实验"
+    weight: 4
+  - name: "ETL"
+    weight: 4
+  - name: "数据仓库"
+    weight: 5
+  - name: "BI"
+    weight: 5
+  - name: "spark"
+    weight: 5
+  - name: "hive"
     weight: 5
 
 # 软性评分权重(合计 100)
@@ -84,11 +100,13 @@ grades:
 # 公司实力加分关键词
 company_plus:
   - "上市公司"
+  - "已上市"
   - "融资"
   - "独角兽"
   - "A轮"
   - "B轮"
   - "C轮"
+  - "D轮"
   - "500强"
   - "外资"
   - "咨询"
