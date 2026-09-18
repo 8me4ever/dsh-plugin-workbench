@@ -156,8 +156,14 @@ def run(url: str, mutate: bool, jobs: Path | None) -> dict:
             r["screenshot"] = str(SHOTS / "project-01.png")
             page.screenshot(path=r["screenshot"], full_page=True)
 
-            # 7. the write path.
-            if mutate and r["jobRows"] > 0:
+            # 7. the write path — only with a backup actually in hand.
+            #
+            # Guarded on `backup`, not on `mutate`: without --jobs/$JOB_RADAR_JOBS there
+            # is no jobs.json to snapshot, and mutating real data with no restore point
+            # is precisely what this check must never do. Gating only the *backup* on the
+            # path and the *write* on `mutate` is the bug that shipped a stray status
+            # change; the two must be gated together.
+            if backup is not None and r["jobRows"] > 0:
                 first = page.locator("[data-job]").first
                 jid = first.get_attribute("data-job")
                 r["firstJobId"] = jid
