@@ -1,0 +1,8 @@
+# dsh-plugin-workbench 插件补丁：把插件插入 profile 的 loader 树。
+#
+# 「dsh plugin add」会把这个包追加到 profile package.json 的
+# dsh.profile.bundles 里（让客户端模块被打包下发），而这一行负责让宿主侧
+# Loader 真正挂载本包。两处名字必须一致。
+- insert:
+    - id: dsh-plugin-workbench
+      name: dsh-plugin-workbench

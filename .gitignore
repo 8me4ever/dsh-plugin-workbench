@@ -1,0 +1,14 @@
+# dependencies (esbuild is resolved from the local/global/npx install; never vendored)
+node_modules/
+
+# regenerable output of scripts/browser-check.py — re-run the check to recreate
+scripts/shots/
+
+# python bytecode from running the check
+__pycache__/
+*.pyc
+
+# logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
