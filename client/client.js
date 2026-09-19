@@ -1246,7 +1246,7 @@ var MATRIX_EXCLUDED_IDS = /* @__PURE__ */ new Set(["SCN", "SAF", "OTHER"]);
 var MATRIX_DISCLOSURE = "\u5F53\u524D\u5C55\u793A\u7684 5\u20138 \u5217\u662F\u6309 asin_opportunity \u9009\u53D6\u7684\uFF0C\u4E0D\u4EE3\u8868\u8BE5\u5546\u54C1\u7684\u7EFC\u5408\u8BC4\u4EF7";
 var tablewareRadarProject = {
   id: TABLEWARE_RADAR_ID,
-  title: () => "\u9910\u76D8\u7897\u789F\u673A\u4F1A\u96F7\u8FBE",
+  title: () => "\u51FA\u6D77\u4E1A\u52A1\u7528\u6237\u8C03\u7814",
   summary: () => "\u8BFB analysis.json \u2014\u2014 \u7EF4\u5EA6\u673A\u4F1A\u699C\u3001\u9009\u54C1\u4F18\u5148\u7EA7\u4E0E\u6570\u636E\u5B8C\u6574\u6027",
   icon: () => dishGlyph(),
   render: (ctx) => (0, import_react7.createElement)(TablewareRadarView, { ctx })
@@ -1718,7 +1718,7 @@ function sourceMissing2() {
         background: T.bgLayer1
       }
     },
-    (0, import_react7.createElement)("div", { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, "\u673A\u4F1A\u96F7\u8FBE\u6570\u636E\u9762\u672A\u88C5\u8F7D"),
+    (0, import_react7.createElement)("div", { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, "\u51FA\u6D77\u4E1A\u52A1\u7528\u6237\u8C03\u7814\u7684\u6570\u636E\u9762\u672A\u88C5\u8F7D"),
     (0, import_react7.createElement)(
       "div",
       { style: { ...HINT, marginTop: 8 } },
@@ -1871,7 +1871,7 @@ var PROJECT_SLOTS = [
   jobRadarProject,
   // 项目 01 —— Job Radar 岗位看板
   tablewareRadarProject,
-  // 项目 02 —— 餐盘碗碟机会雷达
+  // 项目 02 —— 出海业务用户调研（数据面：餐盘碗碟品类）
   null,
   // 项目 03 —— 预留
   null

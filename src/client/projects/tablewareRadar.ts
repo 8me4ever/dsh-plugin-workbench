@@ -1,5 +1,6 @@
 /**
- * 项目 02 —— 餐盘碗碟机会雷达。
+ * 项目 02 —— 出海业务用户调研（工作台展示名；数据面仍是
+ * `dsh-tableware-radar` 插件的餐盘碗碟品类机会雷达，id 与数据结构不变）。
  *
  * 数据来自 `dsh-tableware-radar` 插件装载的 `tablewareRadar` 数据面，本项目
  * **不拥有**数据：它只读离线管道产出的唯一真源 `data/analysis.json` 快照。
@@ -69,7 +70,7 @@ interface LoadState {
 
 export const tablewareRadarProject: WorkbenchProject = {
   id: TABLEWARE_RADAR_ID,
-  title: () => '餐盘碗碟机会雷达',
+  title: () => '出海业务用户调研',
   summary: () => '读 analysis.json —— 维度机会榜、选品优先级与数据完整性',
   icon: () => dishGlyph(),
   render: (ctx) => h(TablewareRadarView, { ctx }),
@@ -627,7 +628,7 @@ function sourceMissing(): ReactElement {
         border: `1px dashed ${T.border2}`, borderRadius: 12, background: T.bgLayer1,
       },
     },
-    h('div', { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, '机会雷达数据面未装载'),
+    h('div', { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, '出海业务用户调研的数据面未装载'),
     h('div', { style: { ...HINT, marginTop: 8 } },
       '这个项目自己不读文件 —— 分析结果由 dsh-tableware-radar 插件通过 remote.tablewareRadar 提供。当前 profile 里没有解析到这个数据面，所以这里先空着。'),
     h('div', { style: { ...HINT, marginTop: 8 } }, '把该插件装进同一个 profile，然后重启宿主：'),

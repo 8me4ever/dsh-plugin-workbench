@@ -46,7 +46,7 @@ import { tablewareRadarProject } from './tablewareRadar.ts'
 
 export const PROJECT_SLOTS: readonly ProjectSlot[] = [
   jobRadarProject, // 项目 01 —— Job Radar 岗位看板
-  tablewareRadarProject, // 项目 02 —— 餐盘碗碟机会雷达
+  tablewareRadarProject, // 项目 02 —— 出海业务用户调研（数据面：餐盘碗碟品类）
   null, // 项目 03 —— 预留
   null, // 项目 04 —— 预留
 ]

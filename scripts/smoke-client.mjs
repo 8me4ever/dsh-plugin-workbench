@@ -591,7 +591,7 @@ check(
     && n.props['data-claimed'] === 'yes').length === 2,
 )
 check('the claimed cards are named by their projects',
-  text(shippedRoom.tree).includes('Job Radar') && text(shippedRoom.tree).includes('餐盘碗碟机会雷达'))
+  text(shippedRoom.tree).includes('Job Radar') && text(shippedRoom.tree).includes('出海业务用户调研'))
 
 // The read-failure branch, which the console shares with the host page.
 const failing = hooks.createInventoryStore(async () => { throw new Error('boom') })
@@ -814,7 +814,7 @@ function tablewareCtx(tablewareRadar) {
 check('project 02 is the Tableware Radar project',
   hooks.PROJECT_SLOTS[1]?.id === hooks.TABLEWARE_RADAR_ID, String(hooks.PROJECT_SLOTS[1]?.id))
 check('project 02 declares a title and a summary',
-  hooks.PROJECT_SLOTS[1]?.title() === '餐盘碗碟机会雷达'
+  hooks.PROJECT_SLOTS[1]?.title() === '出海业务用户调研'
   && typeof hooks.PROJECT_SLOTS[1]?.summary() === 'string'
   && hooks.PROJECT_SLOTS[1].summary() !== '')
 check('project 02 draws its own icon', hooks.PROJECT_SLOTS[1]?.icon()?.type === 'svg')
@@ -1000,7 +1000,7 @@ const twPanelView = runtime.render(WorkbenchTableware, {})
 check('the panel routes to the tableware radar project',
   bodyView(twPanelView.tree) === 'slot:1', String(bodyView(twPanelView.tree)))
 check('the breadcrumb names project 02',
-  text(twPanelView.tree).includes('餐盘碗碟机会雷达'), text(twPanelView.tree).slice(0, 160))
+  text(twPanelView.tree).includes('出海业务用户调研'), text(twPanelView.tree).slice(0, 160))
 check('the project page is not the reserved placeholder',
   !text(twPanelView.tree).includes('my-project'))
 
