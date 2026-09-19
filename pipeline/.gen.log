@@ -1,0 +1,12 @@
+﻿python.exe : Traceback (most recent call last):
+所在位置 行:445 字符: 68
++ ... \pipeline"; & "C:\Users\Samuel\.workbuddy\binaries\python\envs\tablew ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "F:\Samuel\dsh-plugins\dsh-tableware-radar\pipeline\_gen_example.py", li
+ne 10, in <module>
+    from tableware_radar import config
+ModuleNotFoundError: No module named 'tableware_radar'

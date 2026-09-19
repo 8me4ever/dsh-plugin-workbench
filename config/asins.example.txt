@@ -1,0 +1,21 @@
+# 抓取输入清单 —— 复制本文件为 config/asins.txt 并填入你的自选 ASIN 清单。
+#
+# 用法：
+#   1) copy config\asins.example.txt config\asins.txt
+#   2) 每行一个 ASIN（B0 开头），'#' 之后为行内注释，空行忽略。
+#   3) 或用环境变量覆盖：set TABLEWARE_ASINS=B0AAA111,B0BBB222,...
+#
+# 自选标准（docs/ARCHITECTURE.md §10-U4 / PRD Q1）：
+#   * 数量 8–10 个；每 ASIN 首屏 ~13 条（无登录态）。
+#   * 取自 UK Best Sellers `plates & bowls` 子类目。
+#   * 兼顾：评论量 ≥100、价格带（中/高）、评分带（4.0–4.6），并覆盖维度多样性。
+#
+# 合规提示：以上为“公开选品信息”，请勿将其它平台的数据文件整体拷入本仓库。
+
+# 探针实测确认真实在售的唯一 ASIN（Amazon Basics 6-Piece White Dinner Plate Set）。
+# 正式运行前请补齐到 8–10 个，并替换/追加下列占位。
+B0157FD9MS
+
+# ---- 待补（T04 / U4 自选）----
+# B0XXXXXXXX   # 示例：请在 UK Best Sellers > Plates & Bowls 中挑选后填入
+# B0YYYYYYYY

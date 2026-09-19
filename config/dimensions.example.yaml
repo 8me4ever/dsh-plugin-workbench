@@ -1,0 +1,105 @@
+# ============================================================================
+# 维度体系 · 结构示例（阶段 B 起点 & validate() 基准）
+# ----------------------------------------------------------------------------
+# * 本文件是**模板**：结构完整、可被 validate() 通过，但枚举与例句是最小的。
+# * 阶段 B（人工）：跑完阶段 A 后，把自由话题簇收敛为**完整**的
+#   config/dimensions.yaml（复制本文件为起点）。维度体系的**唯一真源**是
+#   config/dimensions.yaml —— 阶段 C 的封闭枚举以此为准。
+# * 每个维度四要素：definition（定义）/ judgement（判定依据）/ values（枚举）/
+#   positive_examples + negative_examples（正负极性例句）。
+# * 另需 excluded_from_opportunity：SCN / SAF 必须为 true（不参与机会分排序）。
+# * 枚举值命名：小写下划线（^[a-z0-9_]+$）。
+# ============================================================================
+
+version: dims-v1
+
+dimensions:
+  - id: DUR
+    name: 耐用性
+    definition: 材质与结构在长期使用、清洗、跌落、加热后的完好程度。
+    judgement: 是否出现崩口/开裂/划痕/变形/耐热衰减等耐久相关表述。
+    values: [durable_strong, chips_easily, cracks_easily]
+    positive_examples: ["still looks new after a year of daily use"]
+    negative_examples: ["one plate chipped after a few washes"]
+    excluded_from_opportunity: false
+
+  - id: CLE
+    name: 易清洁
+    definition: 清洁便利性，含手洗与洗碗机。
+    judgement: 是否提及易擦洗、洗碗机安全、染色、残留等。
+    values: [easy_to_clean, dishwasher_safe, stain_retention]
+    positive_examples: ["wipes clean with a quick rinse"]
+    negative_examples: ["stains from tomato sauce won't come out"]
+    excluded_from_opportunity: false
+
+  - id: AES
+    name: 美观度
+    definition: 外观设计、颜色、光泽与照片一致性。
+    judgement: 是否提及造型、配色、釉面、与图片一致性。
+    values: [attractive_design, colour_variation, looks_cheap]
+    positive_examples: ["elegant look, guests commented on them"]
+    negative_examples: ["colour is quite different from the listing photos"]
+    excluded_from_opportunity: false
+
+  - id: SIZ
+    name: 尺寸
+    definition: 直径/容量/深度是否与描述及用途匹配。
+    judgement: 是否提及过大过小、深度、与描述尺寸的偏差。
+    values: [good_size, too_small, too_large]
+    positive_examples: ["perfect size for a main course"]
+    negative_examples: ["much smaller than described"]
+    excluded_from_opportunity: false
+
+  - id: PCK
+    name: 包装
+    definition: 运输包装对商品的保护与合理性。
+    judgement: 是否提及破损到货、缓冲不足、包装过度。
+    values: [well_protected, arrived_damaged, minimal_packaging]
+    positive_examples: ["arrived well packed with no damage"]
+    negative_examples: ["two plates were cracked; box had no padding"]
+    excluded_from_opportunity: false
+
+  - id: SCN
+    name: 使用场景
+    definition: 评论提及的具体使用场景（用于筛选切片，不参与机会分）。
+    judgement: 是否指向某个使用场景。
+    values: [everyday_dining, entertaining, afternoon_tea, roast_dinner, gifting, kids_family, baking_serving]
+    positive_examples: ["used every day for family dinners"]
+    negative_examples: ["bought as a gift but arrived chipped"]
+    excluded_from_opportunity: true
+
+  - id: STR
+    name: 强度/结构
+    definition: 厚度、重量、边缘与整体结构强度。
+    judgement: 是否提及厚薄、轻重、结实/发飘、边缘。
+    values: [sturdy, flimsy, heavy_weight]
+    positive_examples: ["thick and feels solid in the hand"]
+    negative_examples: ["very thin and feels flimsy"]
+    excluded_from_opportunity: false
+
+  - id: HAN
+    name: 手感/握持
+    definition: 拿握、平衡与边缘触感。
+    judgement: 是否提及手感、打滑、边缘割手。
+    values: [comfortable_handling, slippery, sharp_edges]
+    positive_examples: ["comfortable to hold and well balanced"]
+    negative_examples: ["edges are a bit sharp to hold"]
+    excluded_from_opportunity: false
+
+  - id: VAL
+    name: 性价比/价值
+    definition: 价格与所获品质、数量、品牌的匹配度。
+    judgement: 是否提及划算/贵/物有所值。
+    values: [good_value, overpriced, worth_it]
+    positive_examples: ["great value for a set of six"]
+    negative_examples: ["overpriced for the quality"]
+    excluded_from_opportunity: false
+
+  - id: SAF
+    name: 合规/安全
+    definition: 与安全、食品接触、材质声明相关的表述（单列风险，不参与机会分）。
+    judgement: 是否提及无铅/食品级/微波/洗碗机安全或安全隐患。
+    values: [lead_free_claim, food_safe_claim, microwave_safe_claim, dishwasher_safe_claim, safety_concern]
+    positive_examples: ["advertised as lead-free and food safe"]
+    negative_examples: ["concerned about the glaze safety"]
+    excluded_from_opportunity: true

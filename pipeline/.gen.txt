@@ -1,0 +1,1 @@
+﻿wrote F:\Samuel\dsh-plugins\dsh-tableware-radar\data\analysis.example.json

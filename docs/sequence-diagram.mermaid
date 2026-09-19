@@ -1,0 +1,133 @@
+%% dsh-tableware-radar · 时序图（三条关键流程）
+%% 与 docs/ARCHITECTURE.md §4 同源
+
+%% ============ 4.1 管道端到端（离线，cli.py run --all） ============
+sequenceDiagram
+    autonumber
+    actor Eng as 工程师/CI
+    participant CLI as cli.py
+    participant Pipe as Pipeline
+    participant Fet as Fetcher(薄接口)
+    participant Cln as Cleaner
+    participant LLM as DshHeadlessClient
+    participant DS as dsh --profile headless
+    participant Dim as DimensionSet
+    participant Lab as Labeler
+    participant Agg as Aggregator
+    participant FS as data/analysis.json
+
+    Eng->>CLI: run --all
+    CLI->>Pipe: run_all()
+    Pipe->>LLM: ensure_profile()
+    LLM->>DS: dsh --profile headless "ok"
+    DS-->>LLM: exit 0
+    loop 每个 ASIN（8–10 个；每 ASIN ~13 条首屏）
+        Pipe->>Fet: fetch_reviews(asin, limit≈13)
+        Fet-->>Pipe: (RawReview[], FetchReport)
+        Pipe->>FS: 写 data/raw/raw_<asin>.json + fetch_report.json
+    end
+    Pipe->>Cln: clean(all_raw)
+    Cln-->>Pipe: ReviewRecord[]
+    Pipe->>FS: 写 data/clean/reviews.jsonl
+    Pipe->>Pipe: stage_a()
+    loop 每批 <=15 条（每 ASIN 抽 10）
+        Pipe->>LLM: run_json(build_stage_a(batch))
+        LLM->>DS: 子进程（stdout=JSON, stderr=推理）
+        DS-->>LLM: [{claim_text, topic_phrase, sentiment, source_review_id}]
+    end
+    Pipe->>FS: 写 data/topics/raw_topics.jsonl
+    note over Eng,Dim: 阶段 B 人工：自由话题簇收敛为 config/dimensions.yaml（不外包给 LLM）
+    Eng->>Dim: 编写/校验 dimensions.yaml
+    Pipe->>Dim: load() + validate()
+    Pipe->>Lab: label(usable_records, dims, pilot=20)
+    Lab->>LLM: run_json(build_stage_c(pilot))
+    LLM-->>Lab: labels[]
+    Lab->>Lab: other_share(pilot)
+    alt other_share > 15%
+        Lab-->>Pipe: 抛出 GateStop
+        Pipe->>FS: 写 analysis.json(data_quality.gate=other_over_15pct)
+        CLI-->>Eng: 非零退出 + "回到阶段 B 补维度"
+    else 合规
+        loop 其余批次（<=20 条/批）
+            Lab->>LLM: run_json(build_stage_c(batch))
+            LLM-->>Lab: labels[] 或 失败
+            Lab->>LLM: build_repair() 重试（attempts++）；仍失败则二分拆批
+        end
+        Pipe->>FS: 写 data/labeled/labeled.jsonl
+        Pipe->>Agg: aggregate(records, dims)
+        Agg-->>Pipe: Analysis
+        Pipe->>FS: 写 data/analysis.json（同输入同输出）
+    end
+
+%% ============ 4.2 页面加载与数据面（在线） ============
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant WB as 工作台(Workbench)
+    participant PH as ProjectHost(host.ts)
+    participant P2 as tablewareRadarProject(项目02)
+    participant Ad as toTablewareRadarFace(适配层)
+    participant GW as API Gateway 客户端(ctx.remote)
+    participant HS as TablewareRadarService(宿主半部)
+    participant FS as data/analysis.json
+
+    U->>WB: 点侧栏「工作台」→ 项目 02
+    WB->>PH: render(slot=projects[1])
+    PH->>P2: render(ctx)
+    P2->>Ad: ctx.tablewareRadar()
+    Ad->>GW: ctx.reflect.get('remote.tablewareRadar')
+    alt 数据面未装载
+        GW-->>Ad: undefined
+        Ad-->>P2: undefined
+        P2-->>U: 渲染 sourceMissing 说明卡（含安装命令）
+    else 已装载
+        Ad-->>P2: TablewareRadarFace
+        P2->>Ad: getStatus()
+        Ad->>GW: ns.getStatus()
+        GW->>HS: typertGateway.invoke('tablewareRadar/getStatus')
+        HS->>FS: stat
+        FS-->>HS: {present?, mtimeMs, bytes}
+        HS-->>GW: {ok:true, value}
+        GW-->>Ad: {ok:true, value}
+        Ad-->>P2: status（拆信封后）
+        alt present = false
+            P2-->>U: 「尚未跑过流水线」说明卡 + 可复制的执行命令
+        else present
+            P2->>Ad: getAnalysis()
+            Ad->>GW: ns.getAnalysis()
+            GW->>HS: invoke('tablewareRadar/getAnalysis')
+            HS->>FS: read + json.loads
+            FS-->>HS: Analysis
+            HS-->>GW: {ok:true, value:Analysis}
+            GW-->>Ad: {ok:true, value}
+            Ad-->>P2: Analysis（拆信封后）
+            P2-->>U: 渲染 ①-⑧ 区块
+        end
+    end
+    U->>P2: 点「刷新」
+    P2->>Ad: getStatus() + getAnalysis()
+
+%% ============ 4.3 打标批次降级（L1–L3） ============
+sequenceDiagram
+    autonumber
+    participant Lab as Labeler
+    participant LLM as DshHeadlessClient
+    participant DS as dsh headless
+    Lab->>LLM: run_batch(batch of 20)
+    LLM->>DS: subprocess(task)
+    alt exit!=0 或 stdout 无 JSON
+        LLM->>DS: 重试（attempts++，<=2）
+        DS-->>LLM: 仍失败
+        LLM-->>Lab: BatchError
+        Lab->>Lab: 二分拆批 → 两个 batch of 10
+        Lab->>LLM: run_batch(half)
+        LLM-->>Lab: 部分成功
+        Lab->>LLM: build_repair(仍失败条目, 错误)
+        LLM-->>Lab: 修复输出
+        Lab->>Lab: 仍失败 → labels=[], labeling.ok=false（计入 coverage）
+    else 输出不合规（缺 evidence / 枚举越界）
+        LLM->>DS: build_repair()
+        DS-->>LLM: 合规输出
+    else 合规
+        LLM-->>Lab: labels[]（attempts=1）
+    end
