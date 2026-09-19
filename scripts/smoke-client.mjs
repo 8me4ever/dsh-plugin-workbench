@@ -238,6 +238,68 @@ function makeJobFace(records = JOB_RECORDS) {
  */
 const resolveJobRadar = () => hooks.toJobRadarFace(jobFace ?? undefined)
 
+// The second optional Remote, provided by the separate dsh-tableware-radar plugin.
+// Shaped like the *raw* mounted namespace: gateway envelope, arity-enforced, both
+// methods 0-parameter (see docs/ARCHITECTURE.md §3.4).
+const TABLEWARE_STATUS = {
+  present: true, path: 'F:/x/data/analysis.json', mtimeMs: 1, bytes: 2, generatedAt: '2026-09-19T00:00:00Z',
+}
+const TABLEWARE_ANALYSIS = {
+  generated_at: '2026-09-19T00:00:00Z',
+  dimension_set_version: 'dims-v1',
+  sample: {
+    asins_with_data: 2, comments_usable: 24, comments_total: 26, labeled_coverage: 0.9167,
+    date_range: { from: '2024-10-02', to: '2026-08-30' },
+  },
+  dimensions: [
+    { id: 'DUR', name: '耐用性', attention: 0.42, net_sat: 0.31, hits: 5, asin_count: 2, rankable: true, low_confidence: false },
+    { id: 'CLE', name: '易清洁', attention: 0.21, net_sat: 0.15, hits: 4, asin_count: 1, rankable: false, low_confidence: true },
+    { id: 'SAF', name: '合规/安全', hits: 1, asin_count: 1, rankable: false, low_confidence: true },
+  ],
+  // Six ASINs on purpose: the matrix defaults to five columns and offers an
+  // "expand all" entry, so the collapse branch needs at least six to exist.
+  by_asin: [
+    { asin: 'B0A', title: 'Plate Set', rating_avg: 4.6, opportunity: 0.087922, dimensions: { DUR: { attention: 0.42, net_sat: 0.31, hits: 5 } } },
+    { asin: 'B0B', title: 'Bowl Set', rating_avg: 4.3, opportunity: 0.052164, dimensions: { DUR: { attention: 0.38, net_sat: 0.28, hits: 4 } } },
+    { asin: 'B0C', title: 'Mug Set', rating_avg: 4.1, opportunity: 0.041, dimensions: { DUR: { attention: 0.3, net_sat: 0.2, hits: 3 } } },
+    { asin: 'B0D', title: 'Platter', rating_avg: 4.0, opportunity: 0.033, dimensions: { DUR: { attention: 0.25, net_sat: 0.1, hits: 3 } } },
+    { asin: 'B0E', title: 'Serving Bowl', rating_avg: 3.9, opportunity: 0.021, dimensions: { DUR: { attention: 0.2, net_sat: 0.05, hits: 3 } } },
+    { asin: 'B0F', title: 'Side Plate', rating_avg: 3.8, opportunity: 0.012, dimensions: { DUR: { attention: 0.15, net_sat: 0.0, hits: 3 } } },
+  ],
+  top_praise: [{ dimension: 'CLE', pos_share: 0.25, example_evidence: 'easy to clean' }],
+  top_complaint: [{ dimension: 'PCK', neg_share: 0.08, example_evidence: 'arrived chipped' }],
+  opportunities: [{
+    dimension: 'DUR', opportunity: 0.29, attention: 0.42, net_sat: 0.31, hits: 5, asin_count: 2,
+    top_evidence: [{ quote: 'chipped after a few washes', review_id: 'R1', asin: 'B0A' }], supplier_action: '复核釉面',
+  }],
+  selection_priority: [{ dimension: 'DUR', opportunity: 0.29, reason: '跨商品复现' }],
+  risk_flags: [{ dimension: 'SAF', value: 'lead_free_claim', polarity: 'neutral', hits: 1, top_evidence: [] }],
+  filters: { everyday_dining: 6, entertaining: 3 },
+  other_topics: [{ topic_phrase: 'delivery packaging', count: 2 }],
+  data_quality: {
+    failed_asins: [], underfilled_asins: [],
+    low_confidence_dimensions: [{ id: 'SAF', hits: 1, asin_count: 1, reason: 'asin_coverage_below_min' }],
+    skipped_unusable: 2, labeling_failures: 2,
+    sampling_bias: {
+      source: 'amazon_top_reviews',
+      effects: ['complaint_dims_overestimated', 'casual_mention_dims_underestimated'],
+      note: '广度消除商品个性偏差',
+    },
+    gate: null,
+  },
+}
+let tablewareFace = makeTablewareFace()
+/** Build a stub `remote.tablewareRadar` shaped like the raw mounted namespace. */
+function makeTablewareFace({ present = true, analysis = TABLEWARE_ANALYSIS } = {}) {
+  const calls = []
+  return {
+    calls,
+    getStatus: async (...args) => { calls.push(['getStatus', ...args]); return { ok: true, value: { ...TABLEWARE_STATUS, present } } },
+    getAnalysis: async (...args) => { calls.push(['getAnalysis', ...args]); return { ok: true, value: present ? analysis : null } },
+  }
+}
+const resolveTablewareRadar = () => hooks.toTablewareRadarFace(tablewareFace ?? undefined)
+
 /** The cross-plugin panel controller, as `dsh-client-ui-layout` provides it. */
 const layoutStub = { selectPanel: (id) => { panelSelections.push(id) } }
 
@@ -329,8 +391,9 @@ const now = Date.now()
  * A fresh face plus its stores, for the panel under test.
  * @param projects - the slot list to render.
  * @param job - resolver for the optional jobRadar Remote.
+ * @param tableware - resolver for the optional tablewareRadar data face.
  */
-function makeFace(projects, job = resolveJobRadar) {
+function makeFace(projects, job = resolveJobRadar, tableware = resolveTablewareRadar) {
   const shown = hooks.createValueStore(false)
   const history = hooks.createHistoryStore(hooks.CONTROL_ROOM_ID)
   const inventory = hooks.createInventoryStore(async () => ENTRIES)
@@ -345,7 +408,7 @@ function makeFace(projects, job = resolveJobRadar) {
       shown,
       history,
       projects,
-      projectCtx: { t, inventory, jobRadar: job },
+      projectCtx: { t, inventory, jobRadar: job, tablewareRadar: tableware },
       close: () => { closes.push(true) },
     },
   }
@@ -521,13 +584,14 @@ const shippedRoom = runtime.render(
   hooks.createControlRoom({ inventory: shipped.inventory, projects: shipped.face.projects, onOpen: () => {} }, t),
   {},
 )
-check('slots.ts claims one of four slots', text(shippedRoom.tree).includes('1 / 4'), text(shippedRoom.tree).slice(-160))
+check('slots.ts claims two of four slots', text(shippedRoom.tree).includes('2 / 4'), text(shippedRoom.tree).slice(-160))
 check(
-  'the claimed slot is marked as live',
+  'the claimed slots are marked as live',
   findAll(shippedRoom.tree, (n) => n.props?.['data-card']?.startsWith('slot:')
-    && n.props['data-claimed'] === 'yes').length === 1,
+    && n.props['data-claimed'] === 'yes').length === 2,
 )
-check('the claimed card is named by its project', text(shippedRoom.tree).includes('Job Radar'))
+check('the claimed cards are named by their projects',
+  text(shippedRoom.tree).includes('Job Radar') && text(shippedRoom.tree).includes('餐盘碗碟机会雷达'))
 
 // The read-failure branch, which the console shares with the host page.
 const failing = hooks.createInventoryStore(async () => { throw new Error('boom') })
@@ -734,6 +798,211 @@ check('the panel routes to the job radar project', bodyView(projectView.tree) ==
   String(bodyView(projectView.tree)))
 check('the project page is not the reserved placeholder',
   !text(projectView.tree).includes('my-project'), text(projectView.tree).slice(0, 120))
+
+// ---- 12. project 02: Tableware Radar -------------------------------------
+// Same treatment as project 01: render the real view directly with a stub
+// context. The data face is a *separate plugin*, so the interesting branches
+// are "present & generated", "present & not generated", "absent", and "call
+// failed" — plus the 0-article arity the gateway enforces on both methods.
+const TablewareRadarView = hooks.tablewareRadarView
+
+/** A context carrying whatever tablewareRadar handle the case under test wants. */
+function tablewareCtx(tablewareRadar) {
+  return { t, inventory: state.inventory, tablewareRadar }
+}
+
+check('project 02 is the Tableware Radar project',
+  hooks.PROJECT_SLOTS[1]?.id === hooks.TABLEWARE_RADAR_ID, String(hooks.PROJECT_SLOTS[1]?.id))
+check('project 02 declares a title and a summary',
+  hooks.PROJECT_SLOTS[1]?.title() === '餐盘碗碟机会雷达'
+  && typeof hooks.PROJECT_SLOTS[1]?.summary() === 'string'
+  && hooks.PROJECT_SLOTS[1].summary() !== '')
+check('project 02 draws its own icon', hooks.PROJECT_SLOTS[1]?.icon()?.type === 'svg')
+
+// The happy path: a generated analysis.json behind a mounted data face.
+tablewareFace = makeTablewareFace()
+const twReady = await settle(TablewareRadarView, { ctx: tablewareCtx(resolveTablewareRadar) })
+const twText = text(twReady.tree)
+check('the ready body identifies itself for the DOM',
+  find(twReady.tree, (n) => n.props?.['data-tableware'] === 'ready') !== null)
+// Both methods are declared with zero parameters; the gateway checks arity, so a
+// stray `{}` argument would make every call fail in the browser even though the
+// stub here would happily ignore it.
+check('getStatus is called with no arguments, as declared',
+  tablewareFace.calls.filter((c) => c[0] === 'getStatus').every((c) => c.length === 1),
+  JSON.stringify(tablewareFace.calls))
+check('getAnalysis is called with no arguments, as declared',
+  tablewareFace.calls.filter((c) => c[0] === 'getAnalysis').every((c) => c.length === 1),
+  JSON.stringify(tablewareFace.calls))
+check('the probe is read before the analysis',
+  tablewareFace.calls.findIndex((c) => c[0] === 'getStatus')
+    < tablewareFace.calls.findIndex((c) => c[0] === 'getAnalysis'),
+  JSON.stringify(tablewareFace.calls))
+// The adapter unwraps `{ ok, value }`; without it `value` is always undefined
+// and the page would render as "not generated" while `ok` looked healthy.
+check('the adapter unwraps the gateway envelope',
+  (await resolveTablewareRadar().getAnalysis())?.generated_at === TABLEWARE_ANALYSIS.generated_at)
+
+// Every content block ① ② ◈ ③ ④ ⑤ ⑥ ⑦ ⑧ is present, including ③.
+const blocks = ['1', '2', 'SAF', '3', '4', '5', '6', '7', '8']
+const drawnBlocks = new Set(findAll(twReady.tree, (n) => n.props?.['data-block'] !== undefined)
+  .map((n) => n.props['data-block']))
+check('all eight content blocks plus the SAF block are drawn',
+  blocks.every((b) => drawnBlocks.has(b)), [...drawnBlocks].join(', '))
+
+// ① overview: the six sample cards and the snapshot timestamp.
+check('① shows the sample size, coverage and range',
+  twText.includes('商品数') && twText.includes('92%') && twText.includes('2024-10-02 ~ 2026-08-30'),
+  twText.slice(0, 300))
+check('① discloses that generated_at is the export time',
+  twText.includes('数据快照生成于') && twText.includes(TABLEWARE_ANALYSIS.generated_at))
+check('① names the data face it reads from', twText.includes('remote.tablewareRadar'))
+
+// ② opportunity leaderboard, sorted by opportunity score.
+check('② ranks the rankable dimension',
+  find(twReady.tree, (n) => n.props?.['data-opp'] === 'DUR') !== null)
+check('② names the dimension in Chinese and shows its score',
+  twText.includes('耐用性（DUR）') && twText.includes('机会分 0.29'), twText.slice(0, 400))
+check('② surfaces the supplier action',
+  twText.includes('供给动作：复核釉面') && twText.includes('chipped after a few washes'))
+check('② lists the dimensions filtered out of the ranking',
+  twText.includes('未达 rankable 而暂不上榜的维度'))
+
+// ◈ SAF: its own block, explicitly excluded from the opportunity score.
+check('◈ SAF renders its own risk block',
+  find(twReady.tree, (n) => n.props?.['data-block'] === 'SAF') !== null)
+check('◈ SAF names the risk flag and its hits',
+  twText.includes('lead_free_claim') && twText.includes('合规/安全风险'))
+
+// ③ the comparison matrix: columns are the by_asin opportunity top-N, rows are
+// the scoring dimensions, and the column-selection caveat rides above it.
+const matrix = find(twReady.tree, (n) => n.props?.['data-matrix'] === 'yes')
+check('③ draws a real matrix, not a placeholder', matrix !== null)
+check('③ discloses the column-selection basis',
+  find(twReady.tree, (n) => n.props?.['data-matrix-disclosure'] === 'yes') !== null
+  && twText.includes('不代表该商品的综合评价'), twText.slice(0, 400))
+check('③ names the caveat as asin_opportunity selection',
+  twText.includes('按 asin_opportunity 选取'))
+// Columns come from by_asin, ordered by opportunity descending: B0A tops it.
+const matrixCols = findAll(twReady.tree, (n) => n.props?.['data-matrix-col'] !== undefined)
+check('③ defaults to five columns when more ASINs exist', matrixCols.length === 5, String(matrixCols.length))
+check('③ orders the columns by asin_opportunity',
+  matrixCols.map((n) => n.props['data-matrix-col']).join(',') === 'B0A,B0B,B0C,B0D,B0E',
+  matrixCols.map((n) => n.props['data-matrix-col']).join(','))
+check('③ heads each column with its ASIN, title and opportunity',
+  twText.includes('B0A') && text(matrixCols[0]).includes('Plate Set') && twText.includes('机会暴露 0.088'),
+  matrixCols[0] ? text(matrixCols[0]) : '')
+// Rows: rankable dims first (by opportunity), low-confidence dims appended dim.
+check('③ draws the rankable dimension as a row',
+  find(twReady.tree, (n) => n.props?.['data-matrix-row'] === 'DUR') !== null)
+check('③ marks a low-confidence dimension and badges it "n不足"',
+  find(twReady.tree, (n) => n.props?.['data-matrix-row'] === 'CLE')?.props['data-matrix-low'] === 'yes'
+  && twText.includes('n不足'))
+check('③ renders the attention / net-satisfaction cell',
+  twText.includes('0.42 / 0.31'))
+// The expand-all entry appears only because 6 > 5, and adds the 6th column
+// without disturbing the row order.
+const expander = find(twReady.tree, (n) => n.props?.['data-matrix-expand'] === 'expand')
+check('③ offers to expand the remaining ASINs',
+  expander !== null && text(expander).includes('展开全部 6 个 ASIN'), expander ? text(expander) : '')
+expander?.props.onClick()
+const twExpanded = runtime.render(TablewareRadarView, { ctx: tablewareCtx(resolveTablewareRadar) })
+const expandedCols = findAll(twExpanded.tree, (n) => n.props?.['data-matrix-col'] !== undefined)
+check('③ expanding adds the remaining column',
+  expandedCols.map((n) => n.props['data-matrix-col']).join(',') === 'B0A,B0B,B0C,B0D,B0E,B0F',
+  expandedCols.map((n) => n.props['data-matrix-col']).join(','))
+check('③ expanding does not change the row order',
+  findAll(twExpanded.tree, (n) => n.props?.['data-matrix-row'] !== undefined)
+    .map((n) => n.props['data-matrix-row']).join(',') === 'DUR,CLE',
+  findAll(twExpanded.tree, (n) => n.props?.['data-matrix-row'] !== undefined)
+    .map((n) => n.props['data-matrix-row']).join(','))
+check('③ the expander flips to a collapse after expanding',
+  find(twExpanded.tree, (n) => n.props?.['data-matrix-expand'] === 'collapse') !== null)
+
+// ④ selection priority, capped at 7.
+check('④ lists the priority with its reason',
+  twText.includes('④ 选品优先级') && twText.includes('跨商品复现'), twText.slice(0, 500))
+
+// ⑤ / ⑥ shares.
+check('⑤ shows the top praise with its share and quote',
+  twText.includes('⑤ 好评亮点') && twText.includes('易清洁') && twText.includes('easy to clean'))
+check('⑥ shows the top complaint with its share and quote',
+  twText.includes('⑥ 差评聚焦') && twText.includes('包装') && twText.includes('arrived chipped'))
+
+// ⑦ scenario slices feed stage A, so both the bars and the raw topics are shown.
+check('⑦ draws the scenario slices with Chinese labels',
+  twText.includes('日常就餐') && twText.includes('宴客'))
+check('⑦ lists the residual topics for the next stage',
+  twText.includes('其他话题') && twText.includes('delivery packaging'))
+
+// ⑧ data quality: the sampling-bias disclosure is the whole point of the block.
+check('⑧ reports the label/usable counts',
+  twText.includes('未能打标条数 2') && twText.includes('因不可用跳过 2'))
+check('⑧ names the low-confidence dimensions',
+  twText.includes('低置信维度：SAF'))
+check('⑧ discloses the sampling bias and its direction',
+  find(twReady.tree, (n) => n.props?.['data-sampling-bias'] === 'yes') !== null)
+check('⑧ spells the bias effect out in Chinese',
+  twText.includes('抱怨类维度高估') && twText.includes('随口一提的维度低估'), twText.slice(0, 600))
+
+// Refreshing re-reads both methods; the button lives in the ① header.
+const twReads = tablewareFace.calls.length
+find(twReady.tree, (n) => n.type === 'button' && text(n) === '刷新')?.props.onClick()
+await settle(TablewareRadarView, { ctx: tablewareCtx(resolveTablewareRadar) })
+check('refreshing re-reads the data face',
+  tablewareFace.calls.length > twReads, `${twReads} -> ${tablewareFace.calls.length}`)
+
+// The plugin is absent: a state with instructions, never a throw.
+const twMissing = await settle(TablewareRadarView, { ctx: tablewareCtx(() => undefined) })
+const twMissingText = text(twMissing.tree)
+check('a missing data face renders an explanation, not a throw',
+  find(twMissing.tree, (n) => n.props?.['data-tableware'] === 'missing') !== null)
+check('the explanation names the plugin to install',
+  twMissingText.includes('dsh-tableware-radar') && twMissingText.includes('dsh plugin'),
+  twMissingText.slice(0, 240))
+check('the explanation stresses the dependency is optional',
+  twMissingText.includes('可选'))
+
+// Mounted but the pipeline has not run yet (analysis.json absent).
+tablewareFace = makeTablewareFace({ present: false })
+const twNotGen = await settle(TablewareRadarView, { ctx: tablewareCtx(resolveTablewareRadar) })
+const twNotGenText = text(twNotGen.tree)
+check('an absent analysis.json renders the not-generated state',
+  find(twNotGen.tree, (n) => n.props?.['data-tableware'] === 'not-generated') !== null)
+check('the not-generated state gives the pipeline command and the path',
+  twNotGenText.includes('python -m tableware_radar.cli run') && twNotGenText.includes(TABLEWARE_STATUS.path),
+  twNotGenText.slice(0, 260))
+
+// A failing call is reported next to a retry, and the project stays mounted.
+const twBrokenFace = {
+  getStatus: async () => { throw new Error('boom-tableware') },
+  getAnalysis: async () => ({ ok: true, value: null }),
+}
+const twBroken = await settle(TablewareRadarView, { ctx: tablewareCtx(() => hooks.toTablewareRadarFace(twBrokenFace)) })
+check('a failing call is reported',
+  find(twBroken.tree, (n) => n.props?.['data-tableware'] === 'error') !== null)
+check('the error text is surfaced verbatim', text(twBroken.tree).includes('boom-tableware'),
+  text(twBroken.tree).slice(0, 200))
+
+// A namespace that mounted only halfway reads as "absent", not a crash.
+check('a half-mounted namespace resolves to undefined',
+  hooks.toTablewareRadarFace({ getStatus: async () => ({ ok: true, value: {} }) }) === undefined)
+check('a non-object namespace resolves to undefined',
+  hooks.toTablewareRadarFace(undefined) === undefined && hooks.toTablewareRadarFace('nope') === undefined)
+
+// And the panel routes to project 02 the same way it routes to project 01.
+tablewareFace = makeTablewareFace()
+const withTableware = makeFace(hooks.PROJECT_SLOTS)
+const WorkbenchTableware = hooks.createWorkbench(withTableware.face, t)
+mountPanel(WorkbenchTableware)
+withTableware.history.push('slot:1')
+const twPanelView = runtime.render(WorkbenchTableware, {})
+check('the panel routes to the tableware radar project',
+  bodyView(twPanelView.tree) === 'slot:1', String(bodyView(twPanelView.tree)))
+check('the breadcrumb names project 02',
+  text(twPanelView.tree).includes('餐盘碗碟机会雷达'), text(twPanelView.tree).slice(0, 160))
+check('the project page is not the reserved placeholder',
+  !text(twPanelView.tree).includes('my-project'))
 
 // Finally, the component `apply()` actually registered — the real stores end to
 // end, rather than a face built by this test.

@@ -73,6 +73,163 @@ export interface JobRadarFace {
 }
 
 /**
+ * 机会雷达数据面的行结构 —— 与 `data/analysis.json` 的 schema 对齐
+ * （见 dsh-tableware-radar 的 docs/ARCHITECTURE.md §3.2）。
+ *
+ * 同样写成"部分 + 可选"：分析字段会随管道演进，工作台不该因为上游多了一个
+ * 字段就编译不过。项目只声明它真正渲染的字段。
+ */
+export interface TablewareAsinSample {
+  asin?: string
+  title?: string
+  fetched?: number
+  usable?: number
+  rating_avg?: number
+  ok?: boolean
+}
+
+/** `analysis.json.dimensions[]` 一行。 */
+export interface TablewareDimension {
+  id?: string
+  name?: string
+  definition?: string
+  attention?: number
+  net_sat?: number
+  satisfaction?: number
+  pos_share?: number
+  neg_share?: number
+  hits?: number
+  asin_count?: number
+  rankable?: boolean
+  low_confidence?: boolean
+}
+
+/** `analysis.json.by_asin[]` 一行（③ 对比矩阵选列的输入）。 */
+export interface TablewareByAsin {
+  asin?: string
+  title?: string
+  rating_avg?: number
+  opportunity?: number
+  dimensions?: Record<string, { attention?: number; net_sat?: number; hits?: number }>
+}
+
+/** 一条证据。 */
+export interface TablewareEvidence {
+  quote?: string
+  review_id?: string
+  asin?: string
+}
+
+/** `analysis.json.opportunities[]` 一行。 */
+export interface TablewareOpportunity {
+  dimension?: string
+  opportunity?: number
+  attention?: number
+  net_sat?: number
+  hits?: number
+  asin_count?: number
+  top_evidence?: readonly TablewareEvidence[]
+  supplier_action?: string
+}
+
+/** `analysis.json.selection_priority[]` 一行。 */
+export interface TablewarePriority {
+  dimension?: string
+  opportunity?: number
+  reason?: string
+}
+
+/** `analysis.json.risk_flags[]` 一行（SAF）。 */
+export interface TablewareRiskFlag {
+  dimension?: string
+  value?: string
+  polarity?: string
+  hits?: number
+  top_evidence?: readonly TablewareEvidence[]
+}
+
+/** `analysis.json.top_praise[]` / `top_complaint[]` 一行。 */
+export interface TablewareShareRow {
+  dimension?: string
+  pos_share?: number
+  neg_share?: number
+  example_evidence?: string
+}
+
+/** `analysis.json.other_topics[]` 一行。 */
+export interface TablewareTopic {
+  topic_phrase?: string
+  count?: number
+}
+
+/** `data_quality.sampling_bias`。 */
+export interface TablewareSamplingBias {
+  source?: string
+  effects?: readonly string[]
+  note?: string
+}
+
+/** `analysis.json.data_quality`。 */
+export interface TablewareDataQuality {
+  failed_asins?: readonly string[]
+  underfilled_asins?: readonly { asin?: string; fetched?: number }[]
+  low_confidence_dimensions?: readonly { id?: string; hits?: number; asin_count?: number; reason?: string }[]
+  skipped_unusable?: number
+  labeling_failures?: number
+  sampling_bias?: TablewareSamplingBias
+  gate?: string | null
+}
+
+/** `analysis.json.sample`。 */
+export interface TablewareSample {
+  asins?: readonly string[]
+  comments_total?: number
+  comments_usable?: number
+  asins_with_data?: number
+  labeled_coverage?: number
+  date_range?: { from?: string; to?: string }
+  per_asin?: readonly TablewareAsinSample[]
+}
+
+/** 离线管道的唯一真源 `data/analysis.json`（只读）。 */
+export interface TablewareAnalysis {
+  generated_at?: string
+  dimension_set_version?: string
+  sample?: TablewareSample
+  dimensions?: readonly TablewareDimension[]
+  by_asin?: readonly TablewareByAsin[]
+  top_praise?: readonly TablewareShareRow[]
+  top_complaint?: readonly TablewareShareRow[]
+  opportunities?: readonly TablewareOpportunity[]
+  selection_priority?: readonly TablewarePriority[]
+  risk_flags?: readonly TablewareRiskFlag[]
+  filters?: Record<string, number>
+  other_topics?: readonly TablewareTopic[]
+  data_quality?: TablewareDataQuality
+}
+
+/** `remote.tablewareRadar.getStatus()` 的返回结构。 */
+export interface TablewareStatus {
+  present: boolean
+  path: string
+  mtimeMs: number
+  bytes: number
+  generatedAt: string | null
+}
+
+/**
+ * tableware-radar Remote 的客户端面（`remote.tablewareRadar`）。
+ *
+ * 由 `dsh-tableware-radar` 插件的宿主半部装载，所以它是本工作台之外的另一个
+ * 包 —— 也因此它是一个**可选**依赖，见下面 `ProjectContext.tablewareRadar`。
+ * 两个方法都是 **0 参数**（网关按描述符的 `parameters.length` 严格校验）。
+ */
+export interface TablewareRadarFace {
+  getAnalysis(): Promise<TablewareAnalysis | null>
+  getStatus(): Promise<TablewareStatus>
+}
+
+/**
  * 项目渲染时拿到的上下文 —— 由工作台注入，项目只读使用。
  *
  * 需要更多宿主能力时（其它 Remote、文件、网络），在 `src/client/index.ts`
@@ -98,6 +255,12 @@ export interface ProjectContext {
    * 会让整个工作台一起停等一个可选插件。
    */
   jobRadar(): JobRadarFace | undefined
+  /**
+   * 解析 tableware-radar 数据面。**每次调用都要重新解析**，理由与 `jobRadar`
+   * 完全一致：它由 `dsh-tableware-radar` 的客户端半部异步挂载。未装载时返回
+   * `undefined`，项目渲染"数据面未装载"说明卡而不是抛错。同样刻意不写进 inject。
+   */
+  tablewareRadar(): TablewareRadarFace | undefined
 }
 
 /** 一个工作台项目。除 id 外全部可选字段都可以先不写。 */

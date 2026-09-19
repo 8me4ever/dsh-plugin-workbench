@@ -199,9 +199,9 @@ function createInventoryStore(read) {
     inFlight = read().then((entries) => {
       store.set({ status: "ready", entries, readAt: Date.now(), error: "" });
     }).catch((err) => {
-      const message2 = err instanceof Error ? err.message : String(err);
+      const message3 = err instanceof Error ? err.message : String(err);
       const previous = store.get();
-      store.set({ status: "error", entries: previous.entries, readAt: previous.readAt, error: message2 });
+      store.set({ status: "error", entries: previous.entries, readAt: previous.readAt, error: message3 });
     }).finally(() => {
       inFlight = null;
     });
@@ -1088,13 +1088,13 @@ function createProjectHost(projectCtx, t) {
   return function ProjectHost(props) {
     const { slot, index } = props;
     if (slot === null || slot === void 0) return placeholder(index, t);
-    let body2;
+    let body3;
     try {
-      body2 = slot.render(projectCtx);
+      body3 = slot.render(projectCtx);
     } catch (err) {
-      body2 = failure(index, err, t);
+      body3 = failure(index, err, t);
     }
-    return (0, import_react6.createElement)("div", { style: { minHeight: "100%" } }, body2);
+    return (0, import_react6.createElement)("div", { style: { minHeight: "100%" } }, body3);
   };
 }
 function placeholder(index, t) {
@@ -1173,7 +1173,7 @@ function placeholder(index, t) {
   );
 }
 function failure(index, err, t) {
-  const message2 = err instanceof Error ? err.message : String(err);
+  const message3 = err instanceof Error ? err.message : String(err);
   return (0, import_react6.createElement)(
     "div",
     {
@@ -1191,7 +1191,7 @@ function failure(index, err, t) {
       { style: { fontSize: 13, fontWeight: 500, color: T.danger } },
       `${slotLabel(index, t)} \xB7 ${t("slot.error")}`
     ),
-    (0, import_react6.createElement)("div", { style: { ...CODE, marginTop: 6, color: T.text2, wordBreak: "break-word" } }, message2)
+    (0, import_react6.createElement)("div", { style: { ...CODE, marginTop: 6, color: T.text2, wordBreak: "break-word" } }, message3)
   );
 }
 
@@ -1217,27 +1217,697 @@ function toJobRadarFace(raw) {
   };
 }
 
+// src/client/projects/tablewareRadar.ts
+var import_react7 = require("react");
+var TABLEWARE_RADAR_ID = "tableware-radar";
+var DIM_NAME = {
+  DUR: "\u8010\u7528\u6027",
+  CLE: "\u6613\u6E05\u6D01",
+  AES: "\u7F8E\u89C2\u5EA6",
+  SIZ: "\u5C3A\u5BF8",
+  PCK: "\u5305\u88C5",
+  SCN: "\u4F7F\u7528\u573A\u666F",
+  STR: "\u5F3A\u5EA6/\u7ED3\u6784",
+  HAN: "\u624B\u611F/\u63E1\u6301",
+  VAL: "\u6027\u4EF7\u6BD4/\u5B89\u5168",
+  SAF: "\u5408\u89C4/\u5B89\u5168"
+};
+var SCN_LABEL = {
+  everyday_dining: "\u65E5\u5E38\u5C31\u9910",
+  entertaining: "\u5BB4\u5BA2",
+  afternoon_tea: "\u4E0B\u5348\u8336",
+  roast_dinner: "\u70E4\u8089\u665A\u9910",
+  gifting: "\u9001\u793C",
+  kids_family: "\u4EB2\u5B50",
+  baking_serving: "\u70D8\u7119/\u76DB\u653E"
+};
+var MATRIX_TOP_ASINS = 5;
+var MATRIX_EXCLUDED_IDS = /* @__PURE__ */ new Set(["SCN", "SAF", "OTHER"]);
+var MATRIX_DISCLOSURE = "\u5F53\u524D\u5C55\u793A\u7684 5\u20138 \u5217\u662F\u6309 asin_opportunity \u9009\u53D6\u7684\uFF0C\u4E0D\u4EE3\u8868\u8BE5\u5546\u54C1\u7684\u7EFC\u5408\u8BC4\u4EF7";
+var tablewareRadarProject = {
+  id: TABLEWARE_RADAR_ID,
+  title: () => "\u9910\u76D8\u7897\u789F\u673A\u4F1A\u96F7\u8FBE",
+  summary: () => "\u8BFB analysis.json \u2014\u2014 \u7EF4\u5EA6\u673A\u4F1A\u699C\u3001\u9009\u54C1\u4F18\u5148\u7EA7\u4E0E\u6570\u636E\u5B8C\u6574\u6027",
+  icon: () => dishGlyph(),
+  render: (ctx) => (0, import_react7.createElement)(TablewareRadarView, { ctx })
+};
+function TablewareRadarView(props) {
+  const { ctx } = props;
+  const [load, setLoad] = (0, import_react7.useState)({
+    status: "idle",
+    analysis: null,
+    probe: null,
+    readAt: 0,
+    error: ""
+  });
+  const [nonce, setNonce] = (0, import_react7.useState)(0);
+  const [matrixExpanded, setMatrixExpanded] = (0, import_react7.useState)(false);
+  (0, import_react7.useEffect)(() => {
+    let live = true;
+    const face = ctx.tablewareRadar();
+    if (face === void 0) {
+      setLoad({ status: "missing", analysis: null, probe: null, readAt: 0, error: "" });
+      return () => {
+        live = false;
+      };
+    }
+    setLoad((prev) => ({ ...prev, status: "loading" }));
+    void (async () => {
+      try {
+        const probe = await face.getStatus();
+        if (!live) return;
+        if (!probe.present) {
+          setLoad({ status: "not-generated", analysis: null, probe, readAt: Date.now(), error: "" });
+          return;
+        }
+        const analysis = await face.getAnalysis();
+        if (!live) return;
+        if (analysis === null) {
+          setLoad({ status: "not-generated", analysis: null, probe, readAt: Date.now(), error: "" });
+          return;
+        }
+        setLoad({ status: "ready", analysis, probe, readAt: Date.now(), error: "" });
+      } catch (err) {
+        if (live) setLoad({ status: "error", analysis: null, probe: null, readAt: 0, error: message2(err) });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [nonce]);
+  const refresh = () => setNonce((n) => n + 1);
+  if (load.status === "missing") return sourceMissing2();
+  if (load.status === "error") return sourceError2(load.error, refresh);
+  if (load.status === "not-generated") return notGenerated(load.probe, refresh);
+  if (load.status !== "ready" || load.analysis === null) return loading();
+  return body(load.analysis, load, refresh, matrixExpanded, () => setMatrixExpanded((v) => !v));
+}
+function body(a, load, onRefresh, matrixExpanded, onToggleMatrix) {
+  return (0, import_react7.createElement)(
+    "div",
+    { "data-tableware": "ready", style: { display: "flex", flexDirection: "column", gap: 18, maxWidth: 980 } },
+    overview(a, load, onRefresh),
+    // ①
+    opportunities(a),
+    // ②
+    riskFlags(a),
+    // ◈ SAF
+    comparisonMatrix(a, matrixExpanded, onToggleMatrix),
+    // ③
+    selectionPriority(a),
+    // ④
+    shares(a),
+    // ⑤ ⑥
+    scenarios(a),
+    // ⑦
+    dataQuality(a)
+    // ⑧
+  );
+}
+function overview(a, load, onRefresh) {
+  const s = a.sample ?? {};
+  const coverage = typeof s.labeled_coverage === "number" ? `${Math.round(s.labeled_coverage * 100)}%` : "-";
+  const cells = [
+    ["\u5546\u54C1\u6570", str(s.asins_with_data)],
+    ["\u53EF\u7528\u8BC4\u8BBA", str(s.comments_usable)],
+    ["\u8BC4\u8BBA\u603B\u6570", str(s.comments_total)],
+    ["\u6253\u6807\u8986\u76D6\u7387", coverage],
+    ["\u65F6\u95F4\u8303\u56F4", rangeText(s.date_range)],
+    ["\u7EF4\u5EA6\u7248\u672C", a.dimension_set_version ?? "-"]
+  ];
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "1" },
+    headerRow("\u2460 \u6982\u89C8", "remote.tablewareRadar", load, onRefresh),
+    (0, import_react7.createElement)(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 8, marginTop: 12 } },
+      ...cells.map(([label, value]) => (0, import_react7.createElement)(
+        "div",
+        { key: label, style: statCardStyle() },
+        (0, import_react7.createElement)("div", { style: { fontSize: 11, color: T.text3 } }, label),
+        (0, import_react7.createElement)("div", { style: { fontSize: 18, fontWeight: 500, lineHeight: 1.5, color: T.text1 } }, value)
+      ))
+    ),
+    (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 8 } },
+      a.generated_at ? `\u6570\u636E\u5FEB\u7167\u751F\u6210\u4E8E ${a.generated_at}\u3002\u8FD9\u662F\u79BB\u7EBF\u7BA1\u9053\u7684\u5BFC\u51FA\u65F6\u95F4\uFF0C\u4E0D\u662F\u6293\u53D6\u65F6\u95F4 \u2014\u2014 \u6570\u5B57\u505C\u4F4F\u8BF4\u660E\u8BE5\u91CD\u8DD1\u4E00\u6B21\u7BA1\u9053\u4E86\u3002` : "\u5FEB\u7167\u7F3A\u5C11 generated_at\u3002"
+    )
+  );
+}
+function opportunities(a) {
+  const dims = /* @__PURE__ */ new Map();
+  for (const d of a.dimensions ?? []) if (d.id) dims.set(d.id, d);
+  const opps = [...a.opportunities ?? []].sort((x, y) => (y.opportunity ?? 0) - (x.opportunity ?? 0));
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "2", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2461 \u7EF4\u5EA6\u673A\u4F1A\u699C\uFF08\u4EC5 rankable \u7EF4\u5EA6\uFF09"),
+    opps.length === 0 ? emptyNote("\u6CA1\u6709 rankable \u7EF4\u5EA6 \u2014\u2014 \u6837\u672C\u592A\u5C0F\uFF0C\u5148\u6269\u5546\u54C1\u6570\u6216\u8865\u7EF4\u5EA6\u3002") : (0, import_react7.createElement)(
+      "div",
+      { style: { display: "flex", flexDirection: "column", marginTop: 6 } },
+      ...opps.map((o) => {
+        const name2 = dims.get(o.dimension ?? "")?.name ?? DIM_NAME[o.dimension ?? ""] ?? o.dimension ?? "-";
+        return (0, import_react7.createElement)(
+          "div",
+          { key: o.dimension, "data-opp": o.dimension, style: rowStyle() },
+          (0, import_react7.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "baseline", gap: 8 } },
+            (0, import_react7.createElement)("span", { style: { fontSize: 13.5, fontWeight: 500, color: T.text1 } }, `${name2}\uFF08${o.dimension}\uFF09`),
+            (0, import_react7.createElement)("span", { style: { ...CODE, color: T.brand, marginLeft: "auto" } }, `\u673A\u4F1A\u5206 ${fmt(o.opportunity)}`)
+          ),
+          (0, import_react7.createElement)(
+            "div",
+            { style: { ...HINT, marginTop: 2 } },
+            `\u63D0\u53CA\u7387 ${fmt(o.attention)} \xB7 \u51C0\u6EE1\u610F\u5EA6 ${fmt(o.net_sat)} \xB7 \u547D\u4E2D ${str(o.hits)} \xB7 \u8986\u76D6 ${str(o.asin_count)} \u4E2A\u5546\u54C1`
+          ),
+          o.supplier_action ? (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 4, color: T.text2 } }, `\u4F9B\u7ED9\u52A8\u4F5C\uFF1A${o.supplier_action}`) : null,
+          evidenceList(o.top_evidence)
+        );
+      })
+    ),
+    lowConfidenceNote(a)
+  );
+}
+function lowConfidenceNote(a) {
+  const rows = (a.dimensions ?? []).filter((d) => d.low_confidence === true);
+  if (rows.length === 0) return null;
+  return (0, import_react7.createElement)(
+    "div",
+    { style: { ...HINT, marginTop: 8 } },
+    `\u672A\u8FBE rankable \u800C\u6682\u4E0D\u4E0A\u699C\u7684\u7EF4\u5EA6\uFF1A${rows.map((d) => `${d.name ?? d.id}\uFF08\u547D\u4E2D ${str(d.hits)}\uFF09`).join("\u3001")}\u3002\u5B83\u4EEC\u4ECD\u4F5C\u4E3A \u2462 \u5BF9\u6BD4\u77E9\u9635\u7684\u884C\u5217\u51FA\uFF08\u964D\u900F\u660E\u5EA6\u5E76\u6807\u300Cn\u4E0D\u8DB3\u300D\uFF09\uFF0C\u53EA\u662F\u4E0D\u53C2\u4E0E\u673A\u4F1A\u5206\u6392\u5E8F\u3002`
+  );
+}
+function riskFlags(a) {
+  const flags = a.risk_flags ?? [];
+  if (flags.length === 0) return null;
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "SAF", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: { ...SECTION_TITLE, color: T.danger } }, "\u25C8 SAF \u5408\u89C4/\u5B89\u5168\u98CE\u9669\uFF08\u5355\u5217\uFF0C\u4E0D\u5165\u673A\u4F1A\u5206\uFF09"),
+    ...flags.map((f) => (0, import_react7.createElement)(
+      "div",
+      { key: `${f.value}`, style: { ...rowStyle(), borderLeft: `3px solid ${T.danger}`, paddingLeft: 10 } },
+      (0, import_react7.createElement)("div", { style: { fontSize: 13, color: T.text1 } }, `${f.value ?? "-"} \xB7 \u547D\u4E2D ${str(f.hits)}`),
+      evidenceList(f.top_evidence)
+    ))
+  );
+}
+function comparisonMatrix(a, expanded, onToggle) {
+  const cols = [...a.by_asin ?? []].filter((r) => (r.asin ?? "") !== "").sort((x, y) => (y.opportunity ?? Number.NEGATIVE_INFINITY) - (x.opportunity ?? Number.NEGATIVE_INFINITY) || cmpStr(x.asin ?? "", y.asin ?? ""));
+  const oppByDim = /* @__PURE__ */ new Map();
+  for (const o of a.opportunities ?? []) if (o.dimension) oppByDim.set(o.dimension, o.opportunity ?? 0);
+  const scoring = (a.dimensions ?? []).filter((d) => d.id !== void 0 && !MATRIX_EXCLUDED_IDS.has(d.id));
+  const rankable = scoring.filter((d) => d.rankable === true).sort((x, y) => (oppByDim.get(y.id ?? "") ?? 0) - (oppByDim.get(x.id ?? "") ?? 0) || cmpStr(x.id ?? "", y.id ?? ""));
+  const lowConf = scoring.filter((d) => d.rankable !== true).sort((x, y) => (y.hits ?? 0) - (x.hits ?? 0) || cmpStr(x.id ?? "", y.id ?? ""));
+  const rows = [...rankable, ...lowConf];
+  const collapsible = cols.length > MATRIX_TOP_ASINS;
+  const shown = expanded || !collapsible ? cols : cols.slice(0, MATRIX_TOP_ASINS);
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "3", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2462 \u54C1\u7C7B\u5BF9\u6BD4\u77E9\u9635"),
+    // 选列口径披露 —— 与 ⑧ 的采样偏差披露同款「小字框」，保证同样是「必读声明」
+    // 而非行内提示（PRD §7.4）。
+    (0, import_react7.createElement)(
+      "div",
+      {
+        "data-matrix-disclosure": "yes",
+        style: {
+          marginTop: 6,
+          padding: "6px 10px",
+          borderRadius: 8,
+          border: `1px solid ${T.border2}`,
+          background: T.bgLayer1
+        }
+      },
+      (0, import_react7.createElement)("div", { style: { ...HINT, color: T.text2 } }, MATRIX_DISCLOSURE)
+    ),
+    cols.length === 0 ? emptyNote("\u6CA1\u6709\u53EF\u5BF9\u6BD4\u7684\u5546\u54C1\uFF08by_asin \u4E3A\u7A7A\uFF09\u3002") : rows.length === 0 ? emptyNote("\u6CA1\u6709\u53EF\u5BF9\u6BD4\u7684\u8BC4\u5206\u7EF4\u5EA6\u3002") : matrixTable(shown, rows, oppByDim),
+    collapsible ? (0, import_react7.createElement)(
+      "button",
+      {
+        type: "button",
+        "data-matrix-expand": expanded ? "collapse" : "expand",
+        onClick: onToggle,
+        style: { ...OUTLINE_BUTTON, marginTop: 6, alignSelf: "flex-start" }
+      },
+      expanded ? "\u6536\u8D77\uFF0C\u53EA\u770B Top 5" : `\u5C55\u5F00\u5168\u90E8 ${cols.length} \u4E2A ASIN`
+    ) : null
+  );
+}
+function matrixTable(cols, rows, oppByDim) {
+  const grid = `minmax(132px, 1.5fr) repeat(${cols.length}, minmax(88px, 1fr))`;
+  return (0, import_react7.createElement)(
+    "div",
+    { "data-matrix": "yes", style: { display: "flex", flexDirection: "column", marginTop: 6 } },
+    (0, import_react7.createElement)(
+      "div",
+      {
+        style: {
+          display: "grid",
+          gridTemplateColumns: grid,
+          columnGap: 8,
+          alignItems: "end",
+          paddingBottom: 6,
+          borderBottom: `1px solid ${T.border2}`
+        }
+      },
+      (0, import_react7.createElement)("div", { style: { ...SECTION_TITLE, textTransform: "none" } }, `\u7EF4\u5EA6 \\ \u5546\u54C1\uFF08${cols.length} \u5217\uFF09`),
+      ...cols.map((c) => (0, import_react7.createElement)(
+        "div",
+        { key: c.asin, "data-matrix-col": c.asin, style: { minWidth: 0 } },
+        (0, import_react7.createElement)("div", { style: { ...CODE, color: T.text1, fontWeight: 500 } }, c.asin ?? "-"),
+        (0, import_react7.createElement)(
+          "div",
+          { style: { ...HINT, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          c.title && c.title !== "" ? c.title : "\uFF08\u65E0\u6807\u9898\uFF09"
+        ),
+        (0, import_react7.createElement)(
+          "div",
+          { style: { ...HINT, marginTop: 2 } },
+          `${typeof c.rating_avg === "number" && c.rating_avg > 0 ? `\u2605${fmt(c.rating_avg)} \xB7 ` : ""}\u673A\u4F1A\u66B4\u9732 ${fmt(c.opportunity)}`
+        )
+      ))
+    ),
+    ...rows.map((d) => matrixRow(d, cols, grid, oppByDim))
+  );
+}
+function matrixRow(d, cols, grid, oppByDim) {
+  const dimId = d.id ?? "";
+  const low = d.rankable !== true;
+  const name2 = d.name || DIM_NAME[dimId] || dimId || "-";
+  return (0, import_react7.createElement)(
+    "div",
+    {
+      key: dimId,
+      "data-matrix-row": dimId,
+      "data-matrix-low": low ? "yes" : "no",
+      style: {
+        display: "grid",
+        gridTemplateColumns: grid,
+        columnGap: 8,
+        alignItems: "center",
+        padding: "7px 0",
+        borderBottom: `1px solid ${T.border1}`,
+        opacity: low ? 0.5 : 1
+      }
+    },
+    (0, import_react7.createElement)(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } },
+      (0, import_react7.createElement)("span", { style: { fontSize: 12.5, color: T.text1 } }, `${name2}\uFF08${dimId}\uFF09`),
+      low ? (0, import_react7.createElement)(
+        "span",
+        {
+          style: {
+            fontSize: 10.5,
+            color: T.warn,
+            border: `1px solid ${T.border2}`,
+            borderRadius: 4,
+            padding: "0 4px",
+            flex: "0 0 auto"
+          }
+        },
+        "n\u4E0D\u8DB3"
+      ) : (0, import_react7.createElement)("span", { style: { ...HINT, marginLeft: "auto" } }, `\u673A\u4F1A\u5206 ${fmt(oppByDim.get(dimId))}`)
+    ),
+    ...cols.map((c) => (0, import_react7.createElement)(
+      "div",
+      { key: `${dimId}-${c.asin}`, style: { ...CODE, color: low ? T.text3 : T.text2 } },
+      matrixCell(c, dimId)
+    ))
+  );
+}
+function matrixCell(row2, dimId) {
+  const cell = row2.dimensions?.[dimId];
+  if (!cell) return "\u2014";
+  return `${fmt(cell.attention)} / ${fmt(cell.net_sat)}`;
+}
+function cmpStr(x, y) {
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+function selectionPriority(a) {
+  const rows = a.selection_priority ?? [];
+  const dims = /* @__PURE__ */ new Map();
+  for (const d of a.dimensions ?? []) if (d.id) dims.set(d.id, d);
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "4", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: SECTION_TITLE }, `\u2463 \u9009\u54C1\u4F18\u5148\u7EA7\uFF08\u524D ${rows.length} \u9879\uFF0C\u22647\uFF09`),
+    rows.length === 0 ? emptyNote("\u6682\u65E0\u4F18\u5148\u7EA7\u9879\u3002") : (0, import_react7.createElement)(
+      "ol",
+      { style: { margin: "6px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 } },
+      ...rows.map((r) => (0, import_react7.createElement)(
+        "li",
+        { key: r.dimension, style: { fontSize: 12.5, color: T.text2 } },
+        (0, import_react7.createElement)(
+          "span",
+          { style: { color: T.text1, fontWeight: 500 } },
+          `${dims.get(r.dimension ?? "")?.name ?? DIM_NAME[r.dimension ?? ""] ?? r.dimension} \xB7 \u673A\u4F1A\u5206 ${fmt(r.opportunity)}`
+        ),
+        r.reason ? (0, import_react7.createElement)("span", { style: { color: T.text3 } }, ` \u2014 ${r.reason}`) : null
+      ))
+    )
+  );
+}
+function shares(a) {
+  const dims = /* @__PURE__ */ new Map();
+  for (const d of a.dimensions ?? []) if (d.id) dims.set(d.id, d);
+  const nameOf = (id) => dims.get(id ?? "")?.name ?? DIM_NAME[id ?? ""] ?? id ?? "-";
+  return (0, import_react7.createElement)(
+    "section",
+    { style: sectionGap() },
+    (0, import_react7.createElement)(
+      "div",
+      { "data-block": "5", style: sectionGap() },
+      (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2464 \u597D\u8BC4\u4EAE\u70B9"),
+      shareRows(a.top_praise, "pos", nameOf)
+    ),
+    (0, import_react7.createElement)(
+      "div",
+      { "data-block": "6", style: sectionGap() },
+      (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2465 \u5DEE\u8BC4\u805A\u7126"),
+      shareRows(a.top_complaint, "neg", nameOf)
+    )
+  );
+}
+function shareRows(rows, which, nameOf) {
+  const list2 = rows ?? [];
+  if (list2.length === 0) return emptyNote("\u6682\u65E0\u6570\u636E\u3002");
+  return (0, import_react7.createElement)(
+    "div",
+    { style: { display: "flex", flexDirection: "column", marginTop: 4 } },
+    ...list2.map((r) => {
+      const share = which === "pos" ? r.pos_share : r.neg_share;
+      return (0, import_react7.createElement)(
+        "div",
+        { key: r.dimension, style: rowStyle() },
+        (0, import_react7.createElement)(
+          "div",
+          { style: { fontSize: 13, color: T.text1 } },
+          `${nameOf(r.dimension)} \xB7 \u5360\u6BD4 ${fmt(share)}`
+        ),
+        r.example_evidence ? (0, import_react7.createElement)("div", { style: { ...HINT, fontStyle: "italic", marginTop: 2 } }, `\u201C${r.example_evidence}\u201D`) : null
+      );
+    })
+  );
+}
+function scenarios(a) {
+  const filters = a.filters ?? {};
+  const entries = Object.entries(filters);
+  const max = entries.reduce((m, [, v]) => Math.max(m, typeof v === "number" ? v : 0), 0);
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "7", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2466 \u573A\u666F\u5207\u7247 & \u5176\u4ED6\u8BDD\u9898\uFF08SCN \u4EC5\u4F5C\u7B5B\u9009\uFF0C\u4E0D\u5165\u673A\u4F1A\u5206\uFF09"),
+    entries.length === 0 ? emptyNote("\u65E0\u573A\u666F\u5207\u7247\u3002") : (0, import_react7.createElement)(
+      "div",
+      { style: { display: "flex", flexDirection: "column", gap: 4, marginTop: 6 } },
+      ...entries.map(([key, value]) => {
+        const count = typeof value === "number" ? value : 0;
+        const width = max > 0 ? Math.round(count / max * 100) : 0;
+        return (0, import_react7.createElement)(
+          "div",
+          { key, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 } },
+          (0, import_react7.createElement)("span", { style: { width: 84, color: T.text2, flex: "0 0 auto" } }, SCN_LABEL[key] ?? key),
+          (0, import_react7.createElement)(
+            "span",
+            { style: { flex: "1 1 auto", height: 6, borderRadius: 3, background: T.bgLayer2, overflow: "hidden" } },
+            (0, import_react7.createElement)("span", { style: { display: "block", height: "100%", width: `${width}%`, background: T.info, borderRadius: 3 } })
+          ),
+          (0, import_react7.createElement)("span", { style: { width: 32, textAlign: "right", color: T.text3, flex: "0 0 auto" } }, String(count))
+        );
+      })
+    ),
+    (a.other_topics ?? []).length > 0 ? (0, import_react7.createElement)(
+      "div",
+      { style: { marginTop: 10 } },
+      (0, import_react7.createElement)("div", { style: { ...SECTION_TITLE, marginBottom: 4 } }, "\u5176\u4ED6\u8BDD\u9898\uFF08\u4E0B\u4E00\u8F6E\u9636\u6BB5 A \u8F93\u5165\uFF09"),
+      (0, import_react7.createElement)(
+        "div",
+        { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+        ...(a.other_topics ?? []).map((tp) => (0, import_react7.createElement)(
+          "span",
+          { key: tp.topic_phrase, style: { fontSize: 11.5, color: T.text2, background: T.bgLayer2, borderRadius: 4, padding: "2px 7px" } },
+          `${tp.topic_phrase} \xB7 ${str(tp.count)}`
+        ))
+      )
+    ) : null
+  );
+}
+function dataQuality(a) {
+  const q = a.data_quality ?? {};
+  const bias = q.sampling_bias;
+  const lowConf = q.low_confidence_dimensions ?? [];
+  return (0, import_react7.createElement)(
+    "section",
+    { "data-block": "8", style: sectionGap() },
+    (0, import_react7.createElement)("div", { style: SECTION_TITLE }, "\u2467 \u6570\u636E\u5B8C\u6574\u6027\u4E0E\u91C7\u6837\u504F\u5DEE"),
+    q.gate ? (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 4, color: T.warn } }, `\u9636\u6BB5\u95F8\u95E8\u5DF2\u89E6\u53D1\uFF1A${q.gate} \u2014\u2014 \u7ED3\u679C\u4E0D\u5B8C\u6574\uFF0C\u9700\u56DE\u5230\u9636\u6BB5 B \u4FEE\u6B63\u540E\u91CD\u8DD1\u3002`) : null,
+    (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 6 } },
+      `\u672A\u80FD\u6253\u6807\u6761\u6570 ${str(q.labeling_failures)} \xB7 \u56E0\u4E0D\u53EF\u7528\u8DF3\u8FC7 ${str(q.skipped_unusable)}`
+    ),
+    (q.failed_asins ?? []).length > 0 ? (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 2 } }, `\u6293\u53D6\u5931\u8D25\u7684 ASIN\uFF1A${(q.failed_asins ?? []).join("\u3001")}`) : null,
+    (q.underfilled_asins ?? []).length > 0 ? (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 2 } },
+      `\u672A\u8FBE\u6807 ASIN\uFF1A${(q.underfilled_asins ?? []).map((u) => `${u.asin}\uFF08${str(u.fetched)} \u6761\uFF09`).join("\u3001")}`
+    ) : null,
+    lowConf.length > 0 ? (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 2 } },
+      `\u4F4E\u7F6E\u4FE1\u7EF4\u5EA6\uFF1A${lowConf.map((d) => `${d.id}\uFF08${d.reason ?? "?"}\uFF09`).join("\u3001")}`
+    ) : null,
+    bias ? (0, import_react7.createElement)(
+      "div",
+      { "data-sampling-bias": "yes", style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, border: `1px solid ${T.border2}`, background: T.bgLayer1 } },
+      (0, import_react7.createElement)("div", { style: { fontSize: 12, color: T.text2 } }, `\u91C7\u6837\u504F\u5DEE\u6765\u6E90\uFF1A${bias.source ?? "-"}`),
+      (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 4 } }, bias.note ?? ""),
+      (bias.effects ?? []).length > 0 ? (0, import_react7.createElement)(
+        "div",
+        { style: { ...HINT, marginTop: 2, color: T.textDim } },
+        `\u504F\u5DEE\u65B9\u5411\uFF1A${(bias.effects ?? []).map((e) => biasEffectLabel(e)).join("\u3001")}`
+      ) : null
+    ) : null
+  );
+}
+function biasEffectLabel(effect) {
+  if (effect === "complaint_dims_overestimated") return "\u62B1\u6028\u7C7B\u7EF4\u5EA6\u9AD8\u4F30";
+  if (effect === "casual_mention_dims_underestimated") return "\u968F\u53E3\u4E00\u63D0\u7684\u7EF4\u5EA6\u4F4E\u4F30";
+  return effect;
+}
+function loading() {
+  return (0, import_react7.createElement)("div", { "data-tableware": "loading", style: { ...HINT, padding: "16px 0" } }, "\u6B63\u5728\u8BFB\u53D6 analysis.json\u2026");
+}
+function sourceMissing2() {
+  return (0, import_react7.createElement)(
+    "div",
+    {
+      "data-tableware": "missing",
+      style: {
+        maxWidth: 620,
+        margin: "16px auto 0",
+        padding: "18px 20px",
+        border: `1px dashed ${T.border2}`,
+        borderRadius: 12,
+        background: T.bgLayer1
+      }
+    },
+    (0, import_react7.createElement)("div", { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, "\u673A\u4F1A\u96F7\u8FBE\u6570\u636E\u9762\u672A\u88C5\u8F7D"),
+    (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 8 } },
+      "\u8FD9\u4E2A\u9879\u76EE\u81EA\u5DF1\u4E0D\u8BFB\u6587\u4EF6 \u2014\u2014 \u5206\u6790\u7ED3\u679C\u7531 dsh-tableware-radar \u63D2\u4EF6\u901A\u8FC7 remote.tablewareRadar \u63D0\u4F9B\u3002\u5F53\u524D profile \u91CC\u6CA1\u6709\u89E3\u6790\u5230\u8FD9\u4E2A\u6570\u636E\u9762\uFF0C\u6240\u4EE5\u8FD9\u91CC\u5148\u7A7A\u7740\u3002"
+    ),
+    (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 8 } }, "\u628A\u8BE5\u63D2\u4EF6\u88C5\u8FDB\u540C\u4E00\u4E2A profile\uFF0C\u7136\u540E\u91CD\u542F\u5BBF\u4E3B\uFF1A"),
+    codeBlock('dsh plugin --profile <profile> add "file:F:/Samuel/dsh-plugins/dsh-tableware-radar/plugin"'),
+    (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 8, color: T.textDim } },
+      "\u6CE8\u610F\uFF1A\u8FD9\u4E2A\u4F9D\u8D56\u662F\u523B\u610F\u505A\u6210\u53EF\u9009\u7684 \u2014\u2014 \u5DE5\u4F5C\u53F0\u7684\u5176\u4F59\u90E8\u5206\u5728\u5B83\u7F3A\u5E2D\u65F6\u7167\u5E38\u5DE5\u4F5C\u3002"
+    )
+  );
+}
+function sourceError2(error, onRetry) {
+  return (0, import_react7.createElement)(
+    "div",
+    {
+      "data-tableware": "error",
+      style: {
+        maxWidth: 620,
+        margin: "16px auto 0",
+        padding: "14px 16px",
+        border: `1px solid ${T.border2}`,
+        borderLeft: `3px solid ${T.danger}`,
+        borderRadius: 10,
+        background: T.bgLayer1
+      }
+    },
+    (0, import_react7.createElement)("div", { style: { fontSize: 13, fontWeight: 500, color: T.danger } }, "\u8BFB\u53D6\u5206\u6790\u7ED3\u679C\u5931\u8D25"),
+    (0, import_react7.createElement)("div", { style: { ...CODE, marginTop: 6, color: T.text2, wordBreak: "break-word" } }, error),
+    (0, import_react7.createElement)("button", { type: "button", onClick: onRetry, style: { ...OUTLINE_BUTTON, marginTop: 10 } }, "\u91CD\u8BD5")
+  );
+}
+function notGenerated(probe, onRefresh) {
+  return (0, import_react7.createElement)(
+    "div",
+    {
+      "data-tableware": "not-generated",
+      style: {
+        maxWidth: 620,
+        margin: "16px auto 0",
+        padding: "18px 20px",
+        border: `1px dashed ${T.border2}`,
+        borderRadius: 12,
+        background: T.bgLayer1
+      }
+    },
+    (0, import_react7.createElement)("div", { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, "\u5C1A\u672A\u8DD1\u8FC7\u6D41\u6C34\u7EBF"),
+    (0, import_react7.createElement)(
+      "div",
+      { style: { ...HINT, marginTop: 8 } },
+      "\u6570\u636E\u9762\u5DF2\u88C5\u8F7D\uFF0C\u4F46\u8FD8\u6CA1\u6709\u627E\u5230\u5206\u6790\u7ED3\u679C\u6587\u4EF6\u3002\u8DD1\u4E00\u6B21\u79BB\u7EBF\u7BA1\u9053\u5373\u53EF\u751F\u6210\uFF1A"
+    ),
+    codeBlock("python -m tableware_radar.cli run --all"),
+    probe?.path ? (0, import_react7.createElement)("div", { style: { ...HINT, marginTop: 8, color: T.textDim } }, `\u671F\u671B\u8DEF\u5F84\uFF1A${probe.path}`) : null,
+    (0, import_react7.createElement)("button", { type: "button", onClick: onRefresh, style: { ...OUTLINE_BUTTON, marginTop: 10 } }, "\u6211\u5DF2\u751F\u6210\uFF0C\u5237\u65B0")
+  );
+}
+function headerRow(title, source, load, onRefresh) {
+  return (0, import_react7.createElement)(
+    "div",
+    { style: { display: "flex", alignItems: "center", gap: 10, paddingBottom: 6, borderBottom: `1px solid ${T.border1}` } },
+    (0, import_react7.createElement)("span", { style: { ...SECTION_TITLE, flex: "1 1 auto" } }, title),
+    (0, import_react7.createElement)("span", { style: { ...CODE, color: T.textDim } }, source),
+    (0, import_react7.createElement)(
+      "span",
+      { style: HINT, "data-read-at": String(load.readAt) },
+      load.status === "loading" && load.readAt === 0 ? "\u6B63\u5728\u8BFB\u53D6\u2026" : `\u8BFB\u53D6\u4E8E ${new Date(load.readAt).toLocaleTimeString()}`
+    ),
+    (0, import_react7.createElement)("button", { type: "button", onClick: onRefresh, style: OUTLINE_BUTTON }, "\u5237\u65B0")
+  );
+}
+function evidenceList(rows) {
+  const list2 = (rows ?? []).filter((r) => r.quote);
+  if (list2.length === 0) return null;
+  return (0, import_react7.createElement)(
+    "div",
+    { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 4 } },
+    ...list2.slice(0, 3).map((r, i) => (0, import_react7.createElement)(
+      "div",
+      { key: `${r.review_id ?? "q"}-${i}`, style: { ...HINT, fontStyle: "italic", color: T.text3 } },
+      `\u201C${r.quote}\u201D${r.asin ? ` \u2014 ${r.asin}` : ""}`
+    ))
+  );
+}
+function emptyNote(text) {
+  return (0, import_react7.createElement)("div", { style: { ...HINT, padding: "8px 0" } }, text);
+}
+function codeBlock(text) {
+  return (0, import_react7.createElement)(
+    "div",
+    {
+      style: {
+        ...CODE,
+        marginTop: 8,
+        padding: "8px 10px",
+        borderRadius: 8,
+        background: T.bgLayer2,
+        border: `1px solid ${T.border1}`,
+        wordBreak: "break-all"
+      }
+    },
+    text
+  );
+}
+function sectionGap() {
+  return { display: "flex", flexDirection: "column", gap: 4 };
+}
+function rowStyle() {
+  return { padding: "8px 0", borderBottom: `1px solid ${T.border1}` };
+}
+function statCardStyle() {
+  return { padding: "8px 10px", borderRadius: 8, border: `1px solid ${T.border1}`, background: T.bgLayer1 };
+}
+function dishGlyph() {
+  return (0, import_react7.createElement)(
+    "svg",
+    {
+      width: 14,
+      height: 14,
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.3,
+      "aria-hidden": true,
+      style: { flex: "0 0 auto" }
+    },
+    (0, import_react7.createElement)("circle", { cx: 8, cy: 8, r: 6.2 }),
+    (0, import_react7.createElement)("circle", { cx: 8, cy: 8, r: 3.4 }),
+    (0, import_react7.createElement)("circle", { cx: 8, cy: 8, r: 0.8, fill: "currentColor", stroke: "none" })
+  );
+}
+function message2(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+function str(value) {
+  return value === void 0 || value === null || value === "" ? "-" : String(value);
+}
+function fmt(value) {
+  return typeof value === "number" ? String(Math.round(value * 1e3) / 1e3) : "-";
+}
+function rangeText(range) {
+  if (!range || !range.from && !range.to) return "-";
+  return `${range.from || "?"} ~ ${range.to || "?"}`;
+}
+
 // src/client/projects/slots.ts
 var PROJECT_SLOTS = [
   jobRadarProject,
   // 项目 01 —— Job Radar 岗位看板
-  null,
-  // 项目 02 —— 预留
+  tablewareRadarProject,
+  // 项目 02 —— 餐盘碗碟机会雷达
   null,
   // 项目 03 —— 预留
   null
   // 项目 04 —— 预留
 ];
 
+// src/client/projects/tablewareRadarRemote.ts
+async function unwrap2(call, method) {
+  const result = await call;
+  if (result === null || typeof result !== "object" || result.ok !== true) {
+    throw new Error(result?.error?.message ?? `tablewareRadar.${method} \u8C03\u7528\u5931\u8D25`);
+  }
+  return result.value;
+}
+function toTablewareRadarFace(raw) {
+  if (raw === null || typeof raw !== "object") return void 0;
+  const ns = raw;
+  if (typeof ns.getAnalysis !== "function" || typeof ns.getStatus !== "function") {
+    return void 0;
+  }
+  return {
+    // 两个方法都是 0 参数 —— 不能补任何实参，否则会被网关按参数个数拒掉。
+    getAnalysis: () => unwrap2(ns.getAnalysis(), "getAnalysis"),
+    getStatus: () => unwrap2(ns.getStatus(), "getStatus")
+  };
+}
+
 // src/client/Trigger.ts
-var import_react7 = require("react");
+var import_react8 = require("react");
 function createTrigger(face, t) {
   return function Trigger(props) {
     const shown = useStoreValue(face.shown);
     const entries = useStoreValue(face.inventory).entries;
     const wide = props?.wide === true;
     const failed = entries.filter((e) => e.fiberPhase === "failed").length;
-    return (0, import_react7.createElement)(
+    return (0, import_react8.createElement)(
       "button",
       {
         type: "button",
@@ -1266,8 +1936,8 @@ function createTrigger(face, t) {
         }
       },
       glyph(16),
-      wide ? (0, import_react7.createElement)("span", { style: { flex: "1 1 auto", textAlign: "left" } }, t("action")) : null,
-      failed > 0 ? (0, import_react7.createElement)(
+      wide ? (0, import_react8.createElement)("span", { style: { flex: "1 1 auto", textAlign: "left" } }, t("action")) : null,
+      failed > 0 ? (0, import_react8.createElement)(
         "span",
         {
           style: {
@@ -1290,7 +1960,7 @@ function createTrigger(face, t) {
   };
 }
 function glyph(size) {
-  return (0, import_react7.createElement)(
+  return (0, import_react8.createElement)(
     "svg",
     {
       width: size,
@@ -1304,15 +1974,15 @@ function glyph(size) {
       "aria-hidden": true,
       style: { flex: "0 0 auto" }
     },
-    (0, import_react7.createElement)("rect", { x: 1.6, y: 2.6, width: 12.8, height: 10.8, rx: 1.6 }),
-    (0, import_react7.createElement)("path", { d: "M6.2 2.9v10.2" }),
-    (0, import_react7.createElement)("path", { d: "M8.2 6.1h4.2" }),
-    (0, import_react7.createElement)("path", { d: "M8.2 9.1h2.8" })
+    (0, import_react8.createElement)("rect", { x: 1.6, y: 2.6, width: 12.8, height: 10.8, rx: 1.6 }),
+    (0, import_react8.createElement)("path", { d: "M6.2 2.9v10.2" }),
+    (0, import_react8.createElement)("path", { d: "M8.2 6.1h4.2" }),
+    (0, import_react8.createElement)("path", { d: "M8.2 9.1h2.8" })
   );
 }
 
 // src/client/Workbench.ts
-var import_react8 = require("react");
+var import_react9 = require("react");
 function createWorkbench(face, t) {
   const ProjectHost = createProjectHost(face.projectCtx, t);
   const ControlRoom = createControlRoom({
@@ -1323,16 +1993,16 @@ function createWorkbench(face, t) {
   const HostView = createHostView({ inventory: face.projectCtx.inventory }, t);
   return function Workbench() {
     const history = useStoreValue(face.history);
-    (0, import_react8.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       face.shown.set(true);
       return () => {
         face.shown.set(false);
       };
     }, []);
-    (0, import_react8.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       void face.projectCtx.inventory.refresh();
     }, []);
-    (0, import_react8.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       const onKey = (event) => {
         if (!event.altKey) return;
         if (event.key === "ArrowLeft") face.history.back();
@@ -1342,7 +2012,7 @@ function createWorkbench(face, t) {
       return () => window.removeEventListener("keydown", onKey);
     }, []);
     const viewId = clampViewId(history.stack[history.cursor] ?? CONTROL_ROOM_ID, face.projects.length);
-    return (0, import_react8.createElement)(
+    return (0, import_react9.createElement)(
       "div",
       {
         "data-workbench": "",
@@ -1360,7 +2030,7 @@ function createWorkbench(face, t) {
         }
       },
       chrome(t, face, history, viewId),
-      (0, import_react8.createElement)(
+      (0, import_react9.createElement)(
         "div",
         {
           // Which view is in the body, as an attribute: the headless smoke test
@@ -1369,16 +2039,16 @@ function createWorkbench(face, t) {
           "data-view": viewId,
           style: { flex: "1 1 auto", minHeight: 0, padding: "20px 24px 28px", ...SCROLL }
         },
-        body(viewId, face, { ControlRoom, HostView, ProjectHost })
+        body2(viewId, face, { ControlRoom, HostView, ProjectHost })
       )
     );
   };
 }
-function body(viewId, face, views) {
-  if (viewId === HOST_ID) return (0, import_react8.createElement)(views.HostView, { key: HOST_ID });
+function body2(viewId, face, views) {
+  if (viewId === HOST_ID) return (0, import_react9.createElement)(views.HostView, { key: HOST_ID });
   const index = slotIndexOf(viewId);
-  if (index === null) return (0, import_react8.createElement)(views.ControlRoom, { key: CONTROL_ROOM_ID });
-  return (0, import_react8.createElement)(views.ProjectHost, {
+  if (index === null) return (0, import_react9.createElement)(views.ControlRoom, { key: CONTROL_ROOM_ID });
+  return (0, import_react9.createElement)(views.ProjectHost, {
     key: slotViewId(index),
     slot: face.projects[index] ?? null,
     index
@@ -1393,7 +2063,7 @@ function viewTitle(t, face, viewId) {
 }
 function chrome(t, face, history, viewId) {
   const atConsole = viewId === CONTROL_ROOM_ID;
-  return (0, import_react8.createElement)(
+  return (0, import_react9.createElement)(
     "div",
     {
       style: {
@@ -1413,12 +2083,12 @@ function chrome(t, face, history, viewId) {
       () => face.history.forward(),
       arrow("M5.6 3.2 10.4 8l-4.8 4.8")
     ),
-    (0, import_react8.createElement)("span", { style: { width: 1, height: 18, background: T.border1, margin: "0 6px" } }),
+    (0, import_react9.createElement)("span", { style: { width: 1, height: 18, background: T.border1, margin: "0 6px" } }),
     atConsole ? crumb(t("console"), CONTROL_ROOM_ID, null) : crumb(t("console"), CONTROL_ROOM_ID, () => face.history.push(CONTROL_ROOM_ID)),
     atConsole ? null : crumbSeparator(),
     atConsole ? null : crumb(viewTitle(t, face, viewId), viewId, null),
-    (0, import_react8.createElement)("span", { style: { flex: "1 1 auto" } }),
-    (0, import_react8.createElement)(
+    (0, import_react9.createElement)("span", { style: { flex: "1 1 auto" } }),
+    (0, import_react9.createElement)(
       "button",
       { type: "button", title: t("exit"), onClick: () => face.close(), style: OUTLINE_BUTTON },
       t("exit")
@@ -1426,7 +2096,7 @@ function chrome(t, face, history, viewId) {
   );
 }
 function crumb(label, viewId, onSelect) {
-  return (0, import_react8.createElement)(
+  return (0, import_react9.createElement)(
     "button",
     {
       key: viewId,
@@ -1450,14 +2120,14 @@ function crumb(label, viewId, onSelect) {
   );
 }
 function crumbSeparator() {
-  return (0, import_react8.createElement)(
+  return (0, import_react9.createElement)(
     "span",
     { key: "sep", style: { color: T.textDim, fontSize: 11, userSelect: "none" } },
     "\u203A"
   );
 }
 function navButton(id, label, enabled, onClick, glyph2) {
-  return (0, import_react8.createElement)(
+  return (0, import_react9.createElement)(
     "button",
     {
       type: "button",
@@ -1486,7 +2156,7 @@ function navButton(id, label, enabled, onClick, glyph2) {
   );
 }
 function arrow(d) {
-  return (0, import_react8.createElement)(
+  return (0, import_react9.createElement)(
     "svg",
     {
       width: 15,
@@ -1499,7 +2169,7 @@ function arrow(d) {
       strokeLinejoin: "round",
       "aria-hidden": true
     },
-    (0, import_react8.createElement)("path", { d })
+    (0, import_react9.createElement)("path", { d })
   );
 }
 
@@ -1542,7 +2212,10 @@ function apply(ctx) {
     // Adapter, not a cast: the mounted namespace speaks the gateway's envelope
     // and enforces parameter arity, while `JobRadarFace` promises neither.
     // See `projects/jobRadarRemote.ts`.
-    jobRadar: () => toJobRadarFace(resolveOptionalRemote(ctx, "remote.jobRadar"))
+    jobRadar: () => toJobRadarFace(resolveOptionalRemote(ctx, "remote.jobRadar")),
+    // Same pattern for the tableware-radar data face: resolved per call through
+    // `reflect`, never cached, never injected. See `projects/tablewareRadarRemote.ts`.
+    tablewareRadar: () => toTablewareRadarFace(resolveOptionalRemote(ctx, "remote.tablewareRadar"))
   };
   void inventory.refresh();
   ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
@@ -1638,6 +2311,7 @@ var __testHooks = {
   HOST_ID,
   PANEL_ID,
   JOB_RADAR_ID,
+  TABLEWARE_RADAR_ID,
   PROJECT_SLOTS,
   DICT_ZH,
   slotViewId,
@@ -1652,6 +2326,9 @@ var __testHooks = {
   createWorkbench,
   jobRadarProject,
   jobRadarView: JobRadarView,
-  toJobRadarFace
+  toJobRadarFace,
+  tablewareRadarProject,
+  tablewareRadarView: TablewareRadarView,
+  toTablewareRadarFace
 };
 return module.exports; } });

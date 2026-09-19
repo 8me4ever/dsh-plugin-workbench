@@ -42,10 +42,11 @@
  */
 import type { ProjectSlot } from './types.ts'
 import { jobRadarProject } from './jobRadar.ts'
+import { tablewareRadarProject } from './tablewareRadar.ts'
 
 export const PROJECT_SLOTS: readonly ProjectSlot[] = [
   jobRadarProject, // 项目 01 —— Job Radar 岗位看板
-  null, // 项目 02 —— 预留
+  tablewareRadarProject, // 项目 02 —— 餐盘碗碟机会雷达
   null, // 项目 03 —— 预留
   null, // 项目 04 —— 预留
 ]

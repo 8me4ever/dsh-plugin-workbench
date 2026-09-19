@@ -43,6 +43,8 @@ import { JOB_RADAR_ID, JobRadarView, jobRadarProject } from './projects/jobRadar
 import { createProjectHost } from './projects/host.ts'
 import { toJobRadarFace } from './projects/jobRadarRemote.ts'
 import { PROJECT_SLOTS } from './projects/slots.ts'
+import { TABLEWARE_RADAR_ID, TablewareRadarView, tablewareRadarProject } from './projects/tablewareRadar.ts'
+import { toTablewareRadarFace } from './projects/tablewareRadarRemote.ts'
 import type { ProjectContext } from './projects/types.ts'
 import { createInventoryStore, createValueStore, type InventoryEntry } from './store.ts'
 import { createTrigger } from './Trigger.ts'
@@ -203,6 +205,9 @@ export function apply(ctx: WorkbenchClientContext): void {
     // and enforces parameter arity, while `JobRadarFace` promises neither.
     // See `projects/jobRadarRemote.ts`.
     jobRadar: () => toJobRadarFace(resolveOptionalRemote(ctx, 'remote.jobRadar')),
+    // Same pattern for the tableware-radar data face: resolved per call through
+    // `reflect`, never cached, never injected. See `projects/tablewareRadarRemote.ts`.
+    tablewareRadar: () => toTablewareRadarFace(resolveOptionalRemote(ctx, 'remote.tablewareRadar')),
   }
 
   // One read at mount so the sidebar entry can badge a failed plugin before
@@ -331,6 +336,7 @@ export const __testHooks = {
   HOST_ID,
   PANEL_ID,
   JOB_RADAR_ID,
+  TABLEWARE_RADAR_ID,
   PROJECT_SLOTS,
   DICT_ZH,
   slotViewId,
@@ -346,4 +352,7 @@ export const __testHooks = {
   jobRadarProject,
   jobRadarView: JobRadarView,
   toJobRadarFace,
+  tablewareRadarProject,
+  tablewareRadarView: TablewareRadarView,
+  toTablewareRadarFace,
 }
