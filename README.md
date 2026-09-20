@@ -8,6 +8,13 @@ DSH 的可视化工作台。侧栏底部一个入口，点一下 —— **右侧
 
 项目 01 **Job Radar** 与项目 02 **出海业务用户调研**均已接入。两个内部预留项目位不在首页制造占位噪声，后续新增项目时仍可沿用扩展契约。
 
+## 当前状态
+
+- **统一仓库已完成**：工作台、两个业务项目及精选结果统一维护；旧业务仓库只保留归档历史。
+- **暗色首页已落地**：首页直接呈现最匹配岗位、选品结论、核心维度与关键因素，不展示低价值过程指标。
+- **同步中心已完成第一阶段**：可只读预览当前分支、本地改动以及与远端的待上传/待下载状态；选择文件、提交预览、拉取、推送和安装仍需后续逐步接入。
+- **详情能力保持完整**：岗位筛选与状态写回、品类对比矩阵及完整分析仍在各项目详情页中提供。
+
 > **版本要求：dsh >= 0.1.5-rc.2。** 工作台占的是 layout 的 `main` 插槽、靠 `ctx.layout.selectPanel()` 切换，
 > 这两个东西都是 0.1.5 的 layout 才有的。0.1.1 的 `LayoutController` 只有
 > `attachPanels/toggleSidebar/openDetails/closeDetails`，中间那一列被硬接在 `conversation` 插槽上，
@@ -47,7 +54,7 @@ DSH 的可视化工作台。侧栏底部一个入口，点一下 —— **右侧
 └──────────────────────────────────────────────────────────┘
 ```
 
-**左上角是浏览器的前进/后退**（也支持 `Alt + ←` / `Alt + →`）。点卡片 = 进入子项目页，后退 = 回控制台。
+**左上角是浏览器式的前进/后退**（也支持 `Alt + ←` / `Alt + →`）。点项目操作 = 进入详情页，后退 = 回首页。
 `返回会话` 把主区域还给对话（等价于 `selectPanel(null)`）。
 
 宿主插件清单仍保留为诊断页，但正常时不占首页空间；只有读取或启动异常才进入全局状态提醒。
@@ -90,7 +97,7 @@ npm run dev -- --profile web
 
 ## 接入一个自定义项目
 
-这是你要改的全部内容。四个项目位定义在 **`src/client/projects/slots.ts`**，数组顺序就是导航顺序，数组长度就是项目位数量 —— **「四个」不是写死的，加第五个直接往数组里加一项即可**。
+项目路由仍由 **`src/client/projects/slots.ts`** 管理，数组顺序就是详情页的项目顺序。首页不再自动把所有 slot 画成入口卡片；新增项目时还要在 `ControlRoom.ts` 中为它设计一个有真实摘要数据的组件，避免退回“空卡片导航页”。
 
 接口契约在 `src/client/projects/types.ts`，最小实现只有三个字段：
 
@@ -102,12 +109,12 @@ import type { WorkbenchProject } from './types.ts'
 export const myProject: WorkbenchProject = {
   id: 'my-project',                    // 唯一 id，也是导航 key
   title: () => '我的项目',              // 导航与页头标题
-  summary: () => '一句话说明',          // 可选，项目位卡片上的副标题
+  summary: () => '一句话说明',          // 可选，详情与扩展信息
   render: (ctx) => h('div', null, `宿主共装载 ${ctx.inventory.get().entries.length} 个插件`),
 }
 ```
 
-然后在 `slots.ts` 里替换掉对应的 `null`：
+然后在 `slots.ts` 里替换掉对应的 `null`，并为首页补上对应业务摘要：
 
 ```ts
 import { myProject } from './myProject.ts'
@@ -117,19 +124,20 @@ export const PROJECT_SLOTS: readonly ProjectSlot[] = [jobRadarProject, myProject
 
 跑 `node scripts/dev.mjs`，重启 host，刷新页面即可。
 
-> 想先看效果？把 `slots.ts` 里的任意一个 `null` 换成上面那段字面量，立刻就能跑通。
+> 只改 `slots.ts` 已足够验证详情页路由；要让项目出现在首页，还需要在 `ControlRoom.ts` 中明确它最值得展示的结论与轻操作。
 
 **`render(ctx)` 里不能用 hook。** 它由工作台直接调用（外面套了 try/catch，所以一个项目抛异常不会带崩别人），不是 React 组件。要有状态就按 `jobRadar.ts` 的样子把上下文交给一个真组件：`render: (ctx) => h(MyView, { ctx })`。
 
 ### 你拿到的上下文
 
-`render(ctx)` 的 `ctx` 有三样东西：
+`render(ctx)` 的 `ctx` 当前提供：
 
 | 字段 | 是什么 |
 | --- | --- |
 | `ctx.t(key)` | 绑定到本插件词条的翻译函数，词条在 `src/client/index.ts` 的 `DICT_ZH` / `DICT_EN` |
 | `ctx.inventory` | 宿主插件清单的只读快照（`get()` / `subscribe()`），附 `refresh()` |
 | `ctx.jobRadar()` | 解析可选的数据面 `remote.jobRadar`，未装载时返回 `undefined`。**每次调用都重新解析** |
+| `ctx.tablewareRadar()` | 解析 `remote.tablewareRadar`，读取统一仓库中的 `analysis.json` 精选结果 |
 
 工作台已经给内容区加了**内边距和纵向滚动**，你的 `render` 只需要返回这一屏的内容。
 
@@ -158,7 +166,7 @@ dsh web --profile web            # 重启 host，然后刷新浏览器标签页
 
 `lib/` 和 `client/` 是**提交进仓库的构建产物**，所以即使不装 esbuild，也能直接 `dsh plugin add` 装上一份能跑的版本；只有要改代码才需要它。
 
-想在项目 01 上看到真实数据，还需要 job-radar 那一侧（**数据源不在本仓库**）：装 `dsh-job-radar` 插件，并在 patch 里给它的 `config.dataDir` 指向 job-radar 的 `data/` 目录。缺了它，项目 01 会渲染一张「数据源未装载」的说明卡，其余功能不受影响。
+两个业务项目的代码与精选结果都已并入本仓库，根插件会直接挂载 `remote.jobRadar` 与 `remote.tablewareRadar`，不需要再安装旧业务插件。大量原始抓取数据、缓存、日志、密钥和浏览器状态仍保留在本机，不进入 Git。
 
 `scripts/browser-check.py` 需要 Python + Playwright（`pip install playwright && playwright install chromium`），且 host 正在 3080 上跑。
 
@@ -174,8 +182,8 @@ node scripts/dev.mjs --profile X  # 换一个 profile
 node scripts/dev.mjs --skip-smoke # 跳过冒烟测试
 node build.mjs                    # 只构建
 node scripts/smoke-client.mjs     # 只跑冒烟测试
-python scripts/browser-check.py   # 对真实 host 跑一遍（需要 host 在跑）
-python scripts/browser-check.py --jobs <job-radar>/data/jobs.json   # 连写入测试一起跑
+python scripts/browser-check.py --no-mutate --url "<DSH 启动日志中的完整 URL>"  # 只读检查
+python scripts/browser-check.py --jobs projects/job-hunting/code/job-radar/data/jobs.json --url "<完整 URL>"  # 含写入测试
 ```
 
 **为什么必须重装、不能只 build。** `file:` 依赖被 pnpm **按 `files` 白名单打包复制**进 profile（`~/.dsh/profiles/web/node_modules/dsh-plugin-workbench/`），不是软链。所以改完源码只 build，profile 里还是上一份拷贝 —— 页面当然没变化。
@@ -186,7 +194,7 @@ python scripts/browser-check.py --jobs <job-radar>/data/jobs.json   # 连写入�
 
 ### 冒烟测试能测到什么
 
-`scripts/smoke-client.mjs` 不需要浏览器：它按模块加载器的方式加载 `client/client.js`，用一个迷你 hook 运行时把各个视图组件渲染成元素树再断言。当前 126 项，覆盖：
+`scripts/smoke-client.mjs` 不需要浏览器：它按模块加载器的方式加载 `client/client.js`，用一个迷你 hook 运行时把各个视图组件渲染成元素树再断言。覆盖：
 
 - 两个插槽的注册名/id/key、侧栏宽窄两种形态、失败角标
 - **注册的是 `main` 而不是 `shell.overlay`**，且侧栏入口的 id === `main` 的 key
@@ -194,15 +202,16 @@ python scripts/browser-check.py --jobs <job-radar>/data/jobs.json   # 连写入�
 - 面板 chrome：前进/后退初始禁用、面包屑、`返回会话`
 - **前进/后退/`Alt+←`/`Alt+→` 的栈与游标语义**（含"从历史往回走后再点新卡片会截断分叉"）
 - **越界 view id 被修回控制台**
-- 控制台是**卡片**网格；"宿主"卡片
+- 暗色首页只暴露两个真实项目与同步中心，不显示空项目位或正常状态下的宿主诊断入口
+- 首页的系统状态、真实业务摘要、读取失败和空数据状态
 - 宿主插件清单页
-- 四种项目位状态（空 / 已接入 / 抛异常 / 空列表）
+- 项目位渲染的空 / 已接入 / 抛异常状态
 - **「填入一个项目后确实能渲染出来」这条扩展路径**
 - **项目 01 本体**：读 Remote、列出岗位、等级/状态与计数、本地筛选不重复取数、标记状态写回 Remote、写入被拒时把原因显示出来、数据源缺席时渲染说明卡而不是抛错、读取失败时报错
 - **适配层契约**：信封被拆开、`list` 每次都带满 1 个实参、`stats` 不带实参、半挂载的命名空间按「未装载」处理
 - `HistoryStore` 的单元级行为
 
-跑它不需要装 `dsh-job-radar`，也不需要真的存在 `jobs.json` —— Remote 是 stub，服务缺席那条分支就是个 `() => undefined`。
+跑它不需要启动 DSH Host，也不会改动真实 `jobs.json` —— Remote 使用 stub，服务缺席分支也有独立覆盖。
 
 ### 冒烟测试**测不到**什么（所以要 browser-check）
 
@@ -214,9 +223,9 @@ stub 是照着我们期望的形状写的，所以它天然测不到"两个插�
 | 客户端整块 `failed to apply loader entry` | `$mount` 内部读 `callerCtx.typert`，而调用方 `inject` 里没有 `typert` |
 | 项目显示「读取岗位数据失败」 | 网关按描述符校验实参个数：`expected 1 argument(s), got 0` |
 
-这三条只在真实 host + 真实浏览器里成立，所以 `scripts/browser-check.py` 用 Playwright 打开真实页面、点开工作台、切到项目 01，断言**确实画出了岗位行**（`[data-job]`）、没有 `[data-job-source="error"]`、控制台没有 error，并顺带跑一次写入。它会在写之前备份 `jobs.json`、结束时还原，所以重复跑不会污染数据。
+这三条只在真实 host + 真实浏览器里成立，所以 `scripts/browser-check.py` 会验证首页真实岗位与核心维度、窄屏无横向溢出、宿主诊断入口正常隐藏，再进入项目 01 断言岗位行确实渲染。可选写入测试会先备份 `jobs.json`、结束时还原。
 
-写入那一步只在给了 `--jobs`（或 `$JOB_RADAR_JOBS`）时才跑：那个路径指向**本仓库之外**的 job-radar 数据目录，所以脚本里不写死，也不猜。没给就跳过并在报告里记一条 `jobsWriteSkipped` —— 跳过是明说的，不会伪装成通过。
+写入那一步只在给了 `--jobs`（或 `$JOB_RADAR_JOBS`）时才跑；默认使用 `--no-mutate` 做只读检查。DSH Host 启用临时认证时，应把启动日志打印的完整本机 URL 通过 `--url` 传入，工具不会自行读取认证信息。
 
 ---
 
@@ -224,12 +233,14 @@ stub 是照着我们期望的形状写的，所以它天然测不到"两个插�
 
 ```
 src/
-├── index.ts                      宿主半部（UI 全在客户端，这半只是让 profile 能挂载本包）
+├── index.ts                      统一宿主：Job Radar、Tableware Radar、同步状态 Remote
 └── client/
     ├── index.ts                  入口：建上下文、注册两个插槽、词条、测试钩子
     ├── Workbench.ts              主区域面板：chrome（前进/后退/面包屑/返回会话）+ 视图路由
-    ├── ControlRoom.ts            控制台：卡片式，每张卡片一个入口
-    ├── HostView.ts               宿主插件清单页（"宿主"卡片点进去的那一屏）
+    ├── ControlRoom.ts            暮光任务舱首页：业务摘要、系统状态、同步状态
+    ├── SyncView.ts               同步中心：main 分支与本地/远端只读预览
+    ├── workbenchSyncRemote.ts     同步 Remote 的客户端适配层
+    ├── HostView.ts               低频宿主诊断页（正常时不占首页）
     ├── history.ts                前进/后退的 HistoryStore（栈 + 游标）
     ├── parts.ts                  跨视图共用的小件：区块标题、提示、状态条
     ├── Trigger.ts                侧栏底部入口
@@ -239,10 +250,15 @@ src/
     ├── i18n.ts                   Translate 类型
     └── projects/
         ├── types.ts              ★ 项目接口契约 + 岗位记录/Remote 的类型
-        ├── slots.ts              ★ 四个项目位，你主要改这里
+        ├── slots.ts              详情页项目顺序与内部预留位
         ├── host.ts               单个项目位的渲染（项目本体 or 预留卡片）
-        ├── jobRadarRemote.ts     网关原名空间 → 项目契约面 的适配层
-        └── jobRadar.ts           项目 01：Job Radar（接新项目时照抄这个）
+        ├── jobRadarRemote.ts     Job Radar 网关命名空间适配层
+        ├── jobRadar.ts           项目 01：Job Radar
+        ├── tablewareRadarRemote.ts Tableware Radar 网关命名空间适配层
+        └── tablewareRadar.ts     项目 02：出海业务用户调研
+projects/
+├── job-hunting/                  原 Job Radar 仓库完整迁入
+└── tableware-radar/              原 Tableware Radar 仓库完整迁入
 scripts/
 ├── dev.mjs                       构建 + 冒烟 + 重装 + 校验
 ├── smoke-client.mjs              无浏览器冒烟测试
@@ -264,11 +280,11 @@ scripts/
 `main` 是 keyed 插槽 —— 别的插件可以各自注册自己的 key，互不覆盖；工作台只是其中一个。
 `selectPanel(null)` 把主区域还给对话。
 
-**数据来源**：宿主自带的只读 Remote `pluginInventory/list`（由 `@deepseek-ai/dsh-host-plugin-inventory` 提供），加上项目 01 自己解析的可选数据面 `remote.jobRadar`（由 `dsh-job-radar` 提供）。本插件没有自己的宿主 API。
+**数据来源**：宿主自带的 `pluginInventory/list` 加上根插件统一挂载的 `remote.jobRadar`、`remote.tablewareRadar` 和 `remote.workbenchSync`。业务源码与精选结果都来自本仓库；旧业务仓库已归档，不再单独安装。
 
-**主题**：一律用 `--dsw-alias-*` 令牌并带浅色兜底（`tokens.ts`），所以浅色/深色主题都能跟住宿主。不要在这里硬编码颜色。
+**主题**：详情页继续使用 `tokens.ts` 中的宿主主题令牌。首页按已确认的“暮光任务舱”设计使用独立暗色语义令牌，完整规范见 [`DESIGN.md`](DESIGN.md)，产品约束见 [`PRODUCT.md`](PRODUCT.md)。
 
-**导航状态**：`history.ts` 里一个栈 + 游标的 `HistoryStore`。点卡片是 `push`，前进/后退只挪游标，从历史里往回走后再点新卡片会截断前面的分叉 —— 和浏览器一样。栈深上限 50。
+**导航状态**：`history.ts` 里一个栈 + 游标的 `HistoryStore`。进入项目或同步视图会 `push`，前进/后退只挪游标，从历史里往回走后再进入新视图会截断前面的分叉 —— 和浏览器一样。栈深上限 50。
 视图 id 编解码在 `views.ts`（`control-room` / `host` / `slot:N`），`clampViewId` 会把越界的 id 修回控制台，
 这样删掉一个项目位不会让停在那一位的历史记录把面板渲染成空白。
 
@@ -276,8 +292,8 @@ scripts/
 
 | 想做的事 | 改哪里 |
 | --- | --- |
-| 加/减项目位 | `projects/slots.ts` 的数组长度（卡片网格自动重排） |
-| 加一个非项目的入口卡片 | `ControlRoom.ts` 里照"宿主"那张卡再加一张，配一个 `views.ts` 里的新 view id |
+| 加/减详情项目 | `projects/slots.ts`，并在 `ControlRoom.ts` 设计对应的首页摘要组件 |
+| 加一个非项目视图 | `views.ts` 增加 view id，`Workbench.ts` 接路由，首页只在确有高频价值时增加入口 |
 | 改主区域面板的排版 | `Workbench.ts` 的 `chrome()`（标题栏）与 `body()`（内容区） |
 | 给入口换个图标 | `Trigger.ts` 的 `glyph()` |
 | 加一个快捷键 | `Workbench.ts` 挂载期那段 `keydown` 监听（现有 `Alt+←/→`） |
@@ -292,11 +308,11 @@ scripts/
 | 侧栏入口点得动，但主区域没变 | **host 是 0.1.1 或更早**：没有 `main` 插槽，也没有 `ctx.layout.selectPanel`。升到 >= 0.1.5-rc.2（见下） |
 | 改了代码，页面没变 | profile 里还是旧拷贝。跑 `node scripts/dev.mjs` —— 它会比对副本与产物并在不一致时强制重装 |
 | 侧栏没有入口 | 宿主半部没挂上：`dsh --profile web --dump-config \| grep workbench` |
-| 项目位一直显示「预留」 | `slots.ts` 里还是 `null`，或改了别的文件（比如复制成了 `slots copy.ts`） |
-| 卡片点进去空白 | 项目的 `render` 返回了 `null` |
+| 新项目详情可访问但首页没有入口 | 首页不自动映射 slot；需要在 `ControlRoom.ts` 增加有真实摘要数据的组件 |
+| 项目点进去空白 | 项目的 `render` 返回了 `null` |
 | 项目显示「渲染失败」 | 项目的 `render` 抛异常了，卡片上会带原始错误信息 |
-| 前进/后退按钮是灰的 | 历史里只有一项（还没点过卡片），或游标已经在某一端 |
-| 项目 01 说「数据源未装载」 | 同 profile 里没装 `dsh-job-radar`，或它没配 `dataDir`，或**它的客户端半部没把命名空间 `$mount` 出来**（看控制台有没有 `failed to apply loader entry (dsh-job-radar)`），或还没挂载完 —— 点一次「刷新」 |
+| 前进/后退按钮是灰的 | 历史里只有一项（还没进入项目），或游标已经在某一端 |
+| 项目 01 说「数据源未装载」 | 统一插件客户端 Remote 尚未挂载完成，或 profile 仍在使用旧副本；先刷新，再运行 `node scripts/dev.mjs` 重装 |
 | 项目 01 说读取失败 | `remote.jobRadar` 在但调用出错，卡片上会带原始错误；`jobs.json` 不存在时会返回空列表而不是报错。若是 `expected N argument(s), got M`，是描述符与调用方的实参个数不一致 |
 | 列表渲染出来了但是空的 | 信封没拆：`res.jobs` 是 `undefined`。检查适配层有没有 `unwrap` |
 | 控制台 `cannot get property "typert" without inject` | 调 `$mount` 的那个插件，`inject` 里少了 `typert` |
