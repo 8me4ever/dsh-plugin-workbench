@@ -1,0 +1,547 @@
+{
+  "generated_at": "2026-09-19T00:00:00Z",
+  "dimension_set_version": "dims-v1",
+  "sample": {
+    "asins": [
+      "B0157FD9MS",
+      "B0EXAMPLE2",
+      "B0EXAMPLE3"
+    ],
+    "comments_total": 39,
+    "comments_usable": 38,
+    "asins_with_data": 3,
+    "labeled_coverage": 0.973684,
+    "date_range": {
+      "from": "2025-03-11",
+      "to": "2026-04-22"
+    },
+    "per_asin": [
+      {
+        "asin": "B0157FD9MS",
+        "title": "Amazon Basics 6-Piece White Dinner Plate Set",
+        "fetched": 13,
+        "usable": 13,
+        "rating_avg": 4.0769,
+        "ok": true
+      },
+      {
+        "asin": "B0EXAMPLE2",
+        "title": "Example Porcelain Bowl Set",
+        "fetched": 13,
+        "usable": 13,
+        "rating_avg": 4.0,
+        "ok": true
+      },
+      {
+        "asin": "B0EXAMPLE3",
+        "title": "Example Stoneware Mug Set",
+        "fetched": 13,
+        "usable": 12,
+        "rating_avg": 4.0,
+        "ok": true
+      }
+    ]
+  },
+  "dimensions": [
+    {
+      "id": "AES",
+      "name": "美观度",
+      "definition": "外观与质感是否讨喜",
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "satisfaction": 1.0,
+      "pos_share": 1.0,
+      "neg_share": 0.0,
+      "hits": 3,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    },
+    {
+      "id": "CLE",
+      "name": "易清洁",
+      "definition": "清洁便利性（手洗/洗碗机）",
+      "attention": 0.243243,
+      "net_sat": 0.555556,
+      "satisfaction": 0.777778,
+      "pos_share": 0.777778,
+      "neg_share": 0.222222,
+      "hits": 9,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    },
+    {
+      "id": "DUR",
+      "name": "耐用性",
+      "definition": "结构与材质在长期使用/清洗后是否保持完好",
+      "attention": 0.243243,
+      "net_sat": -0.333333,
+      "satisfaction": 0.333333,
+      "pos_share": 0.333333,
+      "neg_share": 0.666667,
+      "hits": 9,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    },
+    {
+      "id": "HAN",
+      "name": "手感/握持",
+      "definition": "手感与握持是否舒适",
+      "attention": 0.027027,
+      "net_sat": 1.0,
+      "satisfaction": 1.0,
+      "pos_share": 1.0,
+      "neg_share": 0.0,
+      "hits": 1,
+      "asin_count": 1,
+      "rankable": false,
+      "low_confidence": true
+    },
+    {
+      "id": "PCK",
+      "name": "包装",
+      "definition": "运输/包装完好度",
+      "attention": 0.027027,
+      "net_sat": -1.0,
+      "satisfaction": 0.0,
+      "pos_share": 0.0,
+      "neg_share": 1.0,
+      "hits": 1,
+      "asin_count": 1,
+      "rankable": false,
+      "low_confidence": true
+    },
+    {
+      "id": "SAF",
+      "name": "合规/安全",
+      "definition": "安全与合规相关声明",
+      "attention": 0.027027,
+      "net_sat": 0.0,
+      "satisfaction": 0.5,
+      "pos_share": 0.0,
+      "neg_share": 0.0,
+      "hits": 1,
+      "asin_count": 1,
+      "rankable": false,
+      "low_confidence": true
+    },
+    {
+      "id": "SCN",
+      "name": "使用场景",
+      "definition": "评论提及的使用场景切片",
+      "attention": 0.162162,
+      "net_sat": 0.0,
+      "satisfaction": 0.5,
+      "pos_share": 0.0,
+      "neg_share": 0.0,
+      "hits": 6,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    },
+    {
+      "id": "SIZ",
+      "name": "尺寸",
+      "definition": "尺寸是否符合预期",
+      "attention": 0.0,
+      "net_sat": 0.0,
+      "satisfaction": 0.5,
+      "pos_share": 0.0,
+      "neg_share": 0.0,
+      "hits": 0,
+      "asin_count": 0,
+      "rankable": false,
+      "low_confidence": true
+    },
+    {
+      "id": "STR",
+      "name": "强度/结构",
+      "definition": "结构强度是否足够",
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "satisfaction": 1.0,
+      "pos_share": 1.0,
+      "neg_share": 0.0,
+      "hits": 3,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    },
+    {
+      "id": "VAL",
+      "name": "性价比/安全",
+      "definition": "性价比是否合理",
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "satisfaction": 1.0,
+      "pos_share": 1.0,
+      "neg_share": 0.0,
+      "hits": 3,
+      "asin_count": 3,
+      "rankable": true,
+      "low_confidence": false
+    }
+  ],
+  "by_asin": [
+    {
+      "asin": "B0157FD9MS",
+      "title": "Amazon Basics 6-Piece White Dinner Plate Set",
+      "rating_avg": 4.0769,
+      "opportunity": 0.18018,
+      "dimensions": {
+        "DUR": {
+          "attention": 0.230769,
+          "net_sat": -1.0,
+          "hits": 3
+        },
+        "CLE": {
+          "attention": 0.230769,
+          "net_sat": 0.333333,
+          "hits": 3
+        },
+        "AES": {
+          "attention": 0.076923,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "STR": {
+          "attention": 0.076923,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "VAL": {
+          "attention": 0.076923,
+          "net_sat": 1.0,
+          "hits": 1
+        }
+      }
+    },
+    {
+      "asin": "B0EXAMPLE2",
+      "title": "Example Porcelain Bowl Set",
+      "rating_avg": 4.0,
+      "opportunity": 0.126126,
+      "dimensions": {
+        "DUR": {
+          "attention": 0.25,
+          "net_sat": -0.333333,
+          "hits": 3
+        },
+        "CLE": {
+          "attention": 0.25,
+          "net_sat": 0.333333,
+          "hits": 3
+        },
+        "AES": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "STR": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "VAL": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        }
+      }
+    },
+    {
+      "asin": "B0EXAMPLE3",
+      "title": "Example Stoneware Mug Set",
+      "rating_avg": 4.0,
+      "opportunity": 0.054054,
+      "dimensions": {
+        "DUR": {
+          "attention": 0.25,
+          "net_sat": 0.333333,
+          "hits": 3
+        },
+        "CLE": {
+          "attention": 0.25,
+          "net_sat": 1.0,
+          "hits": 3
+        },
+        "AES": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "STR": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        },
+        "VAL": {
+          "attention": 0.083333,
+          "net_sat": 1.0,
+          "hits": 1
+        }
+      }
+    }
+  ],
+  "top_praise": [
+    {
+      "dimension": "AES",
+      "pos_share": 1.0,
+      "example_evidence": "looks elegant on the table"
+    },
+    {
+      "dimension": "HAN",
+      "pos_share": 1.0,
+      "example_evidence": "comfortable in the hand"
+    },
+    {
+      "dimension": "STR",
+      "pos_share": 1.0,
+      "example_evidence": "feels sturdy and solid"
+    }
+  ],
+  "top_complaint": [
+    {
+      "dimension": "PCK",
+      "neg_share": 1.0,
+      "example_evidence": "arrived with a chipped rim due to minimal packaging"
+    },
+    {
+      "dimension": "DUR",
+      "neg_share": 0.666667,
+      "example_evidence": "one plate chipped after a few washes"
+    },
+    {
+      "dimension": "CLE",
+      "neg_share": 0.222222,
+      "example_evidence": "stains are hard to scrub off"
+    }
+  ],
+  "opportunities": [
+    {
+      "dimension": "DUR",
+      "opportunity": 0.162162,
+      "attention": 0.243243,
+      "net_sat": -0.333333,
+      "hits": 9,
+      "asin_count": 3,
+      "top_evidence": [
+        {
+          "quote": "one plate chipped after a few washes",
+          "review_id": "B0157FD9MS-R00",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "a hairline crack appeared near the rim",
+          "review_id": "B0157FD9MS-R01",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "the plate warped slightly in the dishwasher",
+          "review_id": "B0157FD9MS-R02",
+          "asin": "B0157FD9MS"
+        }
+      ],
+      "supplier_action": "聚焦「耐用性」负反馈（chipped、durable_ok），复核工艺与描述一致性"
+    },
+    {
+      "dimension": "CLE",
+      "opportunity": 0.054054,
+      "attention": 0.243243,
+      "net_sat": 0.555556,
+      "hits": 9,
+      "asin_count": 3,
+      "top_evidence": [
+        {
+          "quote": "stains are hard to scrub off",
+          "review_id": "B0157FD9MS-R05",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "grease is stubborn to remove",
+          "review_id": "B0EXAMPLE2-R05",
+          "asin": "B0EXAMPLE2"
+        }
+      ],
+      "supplier_action": "聚焦「易清洁」负反馈（easy_clean、dishwasher_safe），复核工艺与描述一致性"
+    },
+    {
+      "dimension": "AES",
+      "opportunity": 0.0,
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "hits": 3,
+      "asin_count": 3,
+      "top_evidence": [
+        {
+          "quote": "looks elegant on the table",
+          "review_id": "B0157FD9MS-R08",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "the glaze looks lovely",
+          "review_id": "B0EXAMPLE2-R08",
+          "asin": "B0EXAMPLE2"
+        },
+        {
+          "quote": "elegant design",
+          "review_id": "B0EXAMPLE3-R08",
+          "asin": "B0EXAMPLE3"
+        }
+      ],
+      "supplier_action": "聚焦「美观度」负反馈（looks_good），复核工艺与描述一致性"
+    },
+    {
+      "dimension": "STR",
+      "opportunity": 0.0,
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "hits": 3,
+      "asin_count": 3,
+      "top_evidence": [
+        {
+          "quote": "feels sturdy and solid",
+          "review_id": "B0157FD9MS-R10",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "thick and solid",
+          "review_id": "B0EXAMPLE2-R10",
+          "asin": "B0EXAMPLE2"
+        },
+        {
+          "quote": "feels robust",
+          "review_id": "B0EXAMPLE3-R10",
+          "asin": "B0EXAMPLE3"
+        }
+      ],
+      "supplier_action": "聚焦「强度/结构」负反馈（sturdy），复核工艺与描述一致性"
+    },
+    {
+      "dimension": "VAL",
+      "opportunity": 0.0,
+      "attention": 0.081081,
+      "net_sat": 1.0,
+      "hits": 3,
+      "asin_count": 3,
+      "top_evidence": [
+        {
+          "quote": "good value for the price",
+          "review_id": "B0157FD9MS-R09",
+          "asin": "B0157FD9MS"
+        },
+        {
+          "quote": "cheap for the quality",
+          "review_id": "B0EXAMPLE2-R09",
+          "asin": "B0EXAMPLE2"
+        },
+        {
+          "quote": "good value",
+          "review_id": "B0EXAMPLE3-R09",
+          "asin": "B0EXAMPLE3"
+        }
+      ],
+      "supplier_action": "聚焦「性价比/安全」负反馈（good_value），复核工艺与描述一致性"
+    }
+  ],
+  "selection_priority": [
+    {
+      "dimension": "DUR",
+      "opportunity": 0.162162,
+      "reason": "耐用性：attention=0.243243、net_sat=-0.333333、跨 3 个商品复现"
+    },
+    {
+      "dimension": "CLE",
+      "opportunity": 0.054054,
+      "reason": "易清洁：attention=0.243243、net_sat=0.555556、跨 3 个商品复现"
+    },
+    {
+      "dimension": "AES",
+      "opportunity": 0.0,
+      "reason": "美观度：attention=0.081081、net_sat=1.0、跨 3 个商品复现"
+    },
+    {
+      "dimension": "STR",
+      "opportunity": 0.0,
+      "reason": "强度/结构：attention=0.081081、net_sat=1.0、跨 3 个商品复现"
+    },
+    {
+      "dimension": "VAL",
+      "opportunity": 0.0,
+      "reason": "性价比/安全：attention=0.081081、net_sat=1.0、跨 3 个商品复现"
+    }
+  ],
+  "risk_flags": [
+    {
+      "dimension": "SAF",
+      "value": "lead_free_claim",
+      "polarity": "neutral",
+      "hits": 1,
+      "top_evidence": [
+        {
+          "quote": "advertised as lead-free",
+          "review_id": "B0157FD9MS-R12",
+          "asin": "B0157FD9MS"
+        }
+      ]
+    }
+  ],
+  "filters": {
+    "everyday_dining": 2,
+    "entertaining": 2,
+    "afternoon_tea": 1,
+    "roast_dinner": 1,
+    "gifting": 0,
+    "kids_family": 0,
+    "baking_serving": 0
+  },
+  "other_topics": [
+    {
+      "topic_phrase": "delivery packaging",
+      "count": 1
+    }
+  ],
+  "data_quality": {
+    "failed_asins": [],
+    "underfilled_asins": [],
+    "low_confidence_dimensions": [
+      {
+        "id": "HAN",
+        "hits": 1,
+        "asin_count": 1,
+        "reason": "hits_below_min"
+      },
+      {
+        "id": "PCK",
+        "hits": 1,
+        "asin_count": 1,
+        "reason": "hits_below_min"
+      },
+      {
+        "id": "SAF",
+        "hits": 1,
+        "asin_count": 1,
+        "reason": "hits_below_min"
+      },
+      {
+        "id": "SIZ",
+        "hits": 0,
+        "asin_count": 0,
+        "reason": "hits_below_min"
+      }
+    ],
+    "skipped_unusable": 1,
+    "labeling_failures": 1,
+    "sampling_bias": {
+      "source": "amazon_top_reviews",
+      "effects": [
+        "complaint_dims_overestimated",
+        "casual_mention_dims_underestimated"
+      ],
+      "note": "广度可消除商品个性偏差；消除不了精选方法论的系统性偏差"
+    },
+    "gate": null
+  }
+}

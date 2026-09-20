@@ -1,0 +1,1 @@
+﻿OK  labeled=37/38  thr=3  rankable=['AES', 'CLE', 'DUR', 'SCN', 'STR', 'VAL']  low_conf=['HAN', 'PCK', 'SAF', 'SIZ']

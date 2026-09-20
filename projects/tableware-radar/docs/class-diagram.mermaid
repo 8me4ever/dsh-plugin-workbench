@@ -1,0 +1,167 @@
+%% dsh-tableware-radar · 类图（数据模型 + 服务类 + 关系）
+%% 与 docs/ARCHITECTURE.md §3.6 同源
+classDiagram
+    class Fetcher {
+        <<Protocol>>
+        +str version
+        +fetch_reviews(asin, limit) tuple~list~RawReview~, FetchReport~
+    }
+    class ScraplingAmazonUkFetcher
+    class FixtureFetcher
+    class RawReview {
+        +str review_id
+        +str asin
+        +str title
+        +str body
+        +int rating
+        +str review_date
+        +int_or_null helpful_votes
+        +str country
+        +bool verified_purchase
+        +str_or_null variant
+        +str url
+    }
+    class FetchReport {
+        +str asin
+        +int requested
+        +int fetched
+        +int platform_cap
+        +bool ok
+        +int attempts
+        +str fetcher_version
+        +str_or_null swapped_from
+        +str error
+    }
+    class Cleaner {
+        +clean(reviews) list~ReviewRecord~
+        +dedupe(records) list~ReviewRecord~
+        +is_usable(record) bool
+    }
+    class ReviewRecord {
+        +str review_id
+        +str asin
+        +dict source
+        +dict raw
+        +dict content
+        +list~Label~ labels
+        +dict labeling
+        +dict derived
+    }
+    class Label {
+        +str dimension
+        +str dimension_name
+        +str value
+        +str polarity
+        +float confidence
+        +str evidence
+    }
+    class DshHeadlessClient {
+        +str profile
+        +int timeout_s
+        +ensure_profile() void
+        +run_json(task, timeout_s, max_retries) Any
+        +run_batch(items, build_prompt, batch_size, on_item) list
+    }
+    class PromptLibrary {
+        +str prompt_version
+        +build_stage_a(batch) str
+        +build_stage_c(batch, dimensions) str
+        +build_repair(failed, error) str
+    }
+    class Dimension {
+        +str id
+        +str name
+        +str definition
+        +list~str~ values
+        +str version
+    }
+    class DimensionSet {
+        +str version
+        +dict~str,Dimension~ by_id
+        +load(path) DimensionSet
+        +validate() void
+    }
+    class TopicDiscoverer {
+        +discover(records, sample_per_asin) list~dict~
+    }
+    class Labeler {
+        +float other_gate
+        +label(records, dims, pilot_size) list~ReviewRecord~
+        +other_share(records) float
+    }
+    class Aggregator {
+        +int hits_min
+        +float asin_ratio
+        +int asin_floor
+        +aggregate(records, dims) Analysis
+        +attention(records, dim, asin) float
+        +net_sat(records, dim) float
+        +opportunity(records, dim) float
+        +rankable(dim, asins_with_data) bool
+        +asin_opportunity(asin) float
+    }
+    class Analysis {
+        +str generated_at
+        +str dimension_set_version
+        +dict sample
+        +list dimensions
+        +list by_asin
+        +list top_praise
+        +list top_complaint
+        +list opportunities
+        +list selection_priority
+        +list risk_flags
+        +dict filters
+        +list other_topics
+        +dict data_quality
+    }
+    class Pipeline {
+        +run_all() Analysis
+        +stage_fetch() void
+        +stage_clean() void
+        +stage_a() void
+        +stage_c() void
+        +stage_aggregate() Analysis
+    }
+    class TablewareRadarService {
+        <<dsh host half>>
+        +getAnalysis() Analysis_or_null
+        +getStatus() dict
+        -read_analysis_file() dict_or_null
+    }
+    class TablewareRadarFace {
+        <<workbench client adapter>>
+        +getAnalysis() Promise
+        +getStatus() Promise
+    }
+    class TablewareRadarProject {
+        <<workbench project 02>>
+        +str id
+        +title() str
+        +render(ctx) ReactElement
+    }
+
+    Fetcher <|.. ScraplingAmazonUkFetcher
+    Fetcher <|.. FixtureFetcher
+    ScraplingAmazonUkFetcher ..> RawReview : produces
+    ScraplingAmazonUkFetcher ..> FetchReport : produces
+    Cleaner ..> RawReview : consumes
+    Cleaner ..> ReviewRecord : produces
+    ReviewRecord *-- Label
+    TopicDiscoverer ..> ReviewRecord : consumes
+    TopicDiscoverer ..> DshHeadlessClient : uses
+    Labeler ..> DshHeadlessClient : uses
+    Labeler ..> DimensionSet : uses
+    DimensionSet *-- Dimension
+    Aggregator ..> ReviewRecord : consumes
+    Aggregator ..> DimensionSet : uses
+    Aggregator ..> Analysis : produces
+    Pipeline ..> Fetcher : uses
+    Pipeline ..> Cleaner : uses
+    Pipeline ..> TopicDiscoverer : uses
+    Pipeline ..> Labeler : uses
+    Pipeline ..> Aggregator : uses
+    PromptLibrary ..> DshHeadlessClient : used by
+    TablewareRadarService ..> Analysis : reads file to
+    TablewareRadarFace ..> TablewareRadarService : calls via gateway
+    TablewareRadarProject ..> TablewareRadarFace : renders from

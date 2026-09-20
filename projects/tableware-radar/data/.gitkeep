@@ -1,0 +1,1 @@
+# 保留 data/ 目录（运行产物本身被 .gitignore 忽略，仅 analysis.example.json 入库）。

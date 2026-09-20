@@ -1,0 +1,28 @@
+﻿
+Mode   Name             
+----   ----             
+d----- src              
+d----- tests            
+-a---- .chk.txt         
+-a---- .gen.log         
+-a---- .gen.txt         
+-a---- .ls.txt          
+-a---- pytest.ini       
+-a---- README.md        
+-a---- requirements.txt 
+-a---- _check_example.py
+-a---- _gen_example.py  
+
+
+
+Mode   Name      
+----   ----      
+d----- config    
+d----- data      
+d----- docs      
+d----- pipeline  
+d----- plugin    
+d----- probe     
+-a---- .gitignore
+
+

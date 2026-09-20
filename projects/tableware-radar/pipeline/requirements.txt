@@ -1,0 +1,21 @@
+# tableware-radar pipeline dependencies
+# Installed into the managed venv:
+#   C:\Users\Samuel\.workbuddy\binaries\python\envs\tableware-radar
+#
+# 说明（见 docs/ARCHITECTURE.md §6.1）：
+#   * scrapling 版本以「探针实测可用版本」为准 —— 探针用的是 0.4.15（见 probe/REPORT.md）。
+#     架构文档原先写的 >=0.2,<0.3 是撰写时尚不确定的占位，实际以实测为准。
+#   * 默认且唯一需要的抓取实现 = 纯 HTTP `Fetcher` + impersonate='chrome'
+#     + stealthy_headers=True（无浏览器 / 无代理 / 无登录 / 无翻页）。
+#   * 浏览器依赖（patchright + `patchright install chromium`）为「兜底时才需要」，非前置。
+#   * 不引入任何 LLM SDK（走 dsh 子进程，无需 API key）；不引入 pandas。
+
+scrapling[fetchers]>=0.4,<0.5      # 抓取：Fetcher(纯 HTTP + curl_cffi TLS 指纹)
+PyYAML>=6.0                        # 读写 config/dimensions.yaml
+python-dateutil>=2.9              # 评论日期归一（相对/绝对日期解析）
+langdetect>=1.0.9                 # content.lang 语言标记
+beautifulsoup4>=4.12              # 纯解析层（去 HTML / 正文清洗 / 离线解析存档 HTML）
+lxml>=5.0                         # beautifulsoup4 的高性能解析后端（可选但推荐）
+tenacity>=8.2                     # 抓取重试（LLM 重试自实现，保持 attempts 可见）
+markdownify>=0.13                 # page.markdown() 依赖（[fetchers] extra 不含它，见 README）
+pytest>=8.0                       # dev：单元测试

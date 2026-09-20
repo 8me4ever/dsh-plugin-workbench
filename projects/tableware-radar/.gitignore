@@ -1,0 +1,21 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ---- Node / 插件构建产物 ----
+node_modules/
+plugin/lib/
+
+# ---- 运行产物（见 docs/ARCHITECTURE.md U8）----
+# data/ 下的中间产物与日志一律忽略；但保留一份 analysis.json 示例入库，
+# 供工作台页面在无真实数据时也能开发（见 data/analysis.example.json）。
+data/*
+!data/analysis.example.json
+!data/.gitkeep
+
+# ---- 探针原始证据（体量大且可重跑）----
+probe/artifacts/

@@ -1,0 +1,19 @@
+# 备选 ASIN 池 —— 复制本文件为 config/asins.reserve.txt 并填入备选 ASIN。
+#
+# 用法：
+#   1) copy config\asins.reserve.example.txt config\asins.reserve.txt
+#   2) 每行一个 ASIN（B0 开头），'#' 之后为行内注释，空行忽略。
+#   3) 或用环境变量覆盖：set TABLEWARE_RESERVE_ASINS=B0AAA111,B0BBB222,...
+#
+# 何时用到（方案 B，见 probe/README.md §2）：
+#   目标位（config/asins.txt）里某个 ASIN 抓取失败、或窗口内条数 < 10 时，
+#   按本文件**从上到下 FIFO** 换一个 ASIN 重试 —— 不降条数、不转半自动、不上登录态。
+#   备选池耗尽则该位如实记为失败（不会偷偷少抓）。
+#
+# 建议数量：目标位的 50% 左右（8–10 个目标配 4–5 个备选）。
+# 选取标准同 config/asins.example.txt（UK Best Sellers > Plates & Bowls）。
+#
+# 留空 = 没有备选池：失败位直接记为失败。
+
+# B0XXXXXXXX   # 示例：请在 UK Best Sellers > Plates & Bowls 中挑选后填入
+# B0YYYYYYYY
