@@ -124,11 +124,22 @@ def run(url: str, mutate: bool, jobs: Path | None) -> dict:
             r["panelCount"] = page.locator("[data-workbench]").count()
             r["viewAfterOpen"] = view_id(page)
             r["cards"] = card_ids(page)
+            r["dashboardJobRows"] = page.locator("[data-dashboard-job]").count()
+            r["dashboardFactors"] = page.locator("[data-dashboard-factor]").count()
             r["backDisabledAtStart"] = nav_disabled(page, "back")
             r["forwardDisabledAtStart"] = nav_disabled(page, "forward")
             r["crumbConsole"] = page.locator(f'[data-crumb="{CONSOLE}"]').count()
             r["screenshotConsole"] = str(SHOTS / "console.png")
             page.screenshot(path=r["screenshotConsole"], full_page=True)
+            page.set_viewport_size({"width": 560, "height": 900})
+            page.wait_for_timeout(500)
+            r["screenshotConsoleMobile"] = str(SHOTS / "console-mobile.png")
+            page.screenshot(path=r["screenshotConsoleMobile"], full_page=True)
+            r["mobileHorizontalOverflow"] = page.evaluate(
+                "document.documentElement.scrollWidth > document.documentElement.clientWidth"
+            )
+            page.set_viewport_size({"width": 1440, "height": 1000})
+            page.wait_for_timeout(500)
 
             # 4. the action card in the sidebar is untouched by the panel: the
             #    app around it still works, which is what "not an overlay" means.
@@ -190,18 +201,12 @@ def run(url: str, mutate: bool, jobs: Path | None) -> dict:
             r["viewAfterForward"] = view_id(page)
             r["jobRowsAfterForward"] = page.locator("[data-job]").count()
 
-            # 9. the host card, the other destination the console offers.
+            # 9. Host diagnostics are intentionally hidden from the healthy
+            #    dashboard; they remain a routed page for exceptional flows.
             page.locator('[data-nav="back"]').first.click()
             page.wait_for_timeout(1000)
             host_card = page.locator(f'[data-card="{HOST}"]')
             r["hostCardCount"] = host_card.count()
-            if host_card.count():
-                host_card.first.click()
-                page.wait_for_timeout(1500)
-            r["viewAtHost"] = view_id(page)
-            r["pluginRows"] = page.locator("[data-plugin]").count()
-            r["screenshotHost"] = str(SHOTS / "host.png")
-            page.screenshot(path=r["screenshotHost"], full_page=True)
 
             # 10. leaving: the entry toggles the centre back to the conversation.
             if entry.count():
@@ -225,7 +230,10 @@ def run(url: str, mutate: bool, jobs: Path | None) -> dict:
         and r["panelCount"] == 1
         and r["viewAfterOpen"] == CONSOLE
         and SLOT in r["cards"]
-        and HOST in r["cards"]
+        and HOST not in r["cards"]
+        and r["dashboardJobRows"] > 0
+        and r["dashboardFactors"] > 0
+        and r["mobileHorizontalOverflow"] is False
         and r["backDisabledAtStart"] is True
         and r["forwardDisabledAtStart"] is True
         and r["sidebarStillThere"] == 1
@@ -238,8 +246,7 @@ def run(url: str, mutate: bool, jobs: Path | None) -> dict:
         and r["forwardDisabledAfterBack"] is False
         and r["viewAfterForward"] == SLOT
         and r["jobRowsAfterForward"] > 0
-        and r["viewAtHost"] == HOST
-        and r["pluginRows"] > 0
+        and r["hostCardCount"] == 0
         and r["panelAfterExit"] == 0
         and r["viewsAfterExit"] == 0
         and not r["pageErrors"]

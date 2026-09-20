@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T00:00:00+08:00",
+  "title": "Design System: 个人工作台",
+  "extensions": {
+    "colorMeta": {
+      "graphite-bg": { "role": "neutral", "displayName": "深石墨背景", "canonical": "#09111d" },
+      "panel-blue-black": { "role": "neutral", "displayName": "冷蓝黑面板", "canonical": "#0d1827" },
+      "cool-line": { "role": "neutral", "displayName": "冷色细线", "canonical": "rgba(151, 177, 211, .14)" },
+      "cool-line-strong": { "role": "neutral", "displayName": "冷蓝强调线", "canonical": "rgba(95, 150, 255, .28)" },
+      "text-primary": { "role": "neutral", "displayName": "冷白正文", "canonical": "#f2f6fb" },
+      "text-secondary": { "role": "neutral", "displayName": "雾蓝次文", "canonical": "#aebed1" },
+      "text-muted": { "role": "neutral", "displayName": "静音蓝灰", "canonical": "#71849b" },
+      "cobalt-action": { "role": "primary", "displayName": "钴蓝交互", "canonical": "#66a3ff" },
+      "cyan-normal": { "role": "secondary", "displayName": "青绿正常", "canonical": "#46d9c2" },
+      "amber-attention": { "role": "secondary", "displayName": "琥珀关注", "canonical": "#f4b86a" },
+      "coral-error": { "role": "secondary", "displayName": "珊瑚红异常", "canonical": "#ff737c" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "页面标题", "purpose": "仅用于个人工作台页面标题。" },
+      "conclusion": { "displayName": "项目结论", "purpose": "项目模块中第一眼应读到的判断。" },
+      "body": { "displayName": "正文", "purpose": "动作、名称、解释与主体信息。" },
+      "label": { "displayName": "标签", "purpose": "元数据、状态说明与指标名。" }
+    },
+    "shadows": [
+      { "name": "widget-ambient", "value": "0 12px 30px rgba(0,0,0,.18)", "purpose": "主业务模块和同步模块的低位环境阴影。" },
+      { "name": "status-dot", "value": "0 2px 8px rgba(0,0,0,.35)", "purpose": "保持小型状态点在深色表面的清晰轮廓。" }
+    ],
+    "breakpoints": [
+      { "name": "stack", "value": "900px" },
+      { "name": "compact", "value": "560px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Action Button",
+      "kind": "button",
+      "refersTo": "action-button",
+      "description": "用于刷新和模块内跳转的紧凑文字按钮。",
+      "html": "<button class=\"ds-action\" type=\"button\">刷新数据</button>",
+      "css": ".ds-action{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(95,150,255,.28);background:rgba(15,31,50,.75);color:#aebed1;font:12px var(--dsw-font-family,\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif);border-radius:8px;padding:7px 10px;cursor:pointer}.ds-action:hover{color:#f2f6fb;border-color:rgba(102,163,255,.55);background:#142641}.ds-action:focus-visible{outline:2px solid #66a3ff;outline-offset:3px}.ds-action:active{background:#0d1827}"
+    },
+    {
+      "name": "Widget Card",
+      "kind": "card",
+      "refersTo": "widget-card",
+      "description": "承载项目结论与证据列表的主业务模块。",
+      "html": "<section class=\"ds-widget\"><h2>Job Radar</h2><p>3 个高匹配岗位值得关注</p></section>",
+      "css": ".ds-widget{border:1px solid rgba(151,177,211,.14);background:linear-gradient(145deg,rgba(16,30,48,.94),rgba(11,22,36,.96));border-radius:13px;box-shadow:0 12px 30px rgba(0,0,0,.18);color:#f2f6fb;padding:20px;font-family:var(--dsw-font-family,\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif)}.ds-widget h2{margin:0;font-size:17px;line-height:1.25;letter-spacing:-.015em}.ds-widget p{margin:6px 0 0;font-size:18px;font-weight:650;line-height:1.35;letter-spacing:-.02em}"
+    },
+    {
+      "name": "Health Cell",
+      "kind": "custom",
+      "refersTo": "status-rail",
+      "description": "以色点、标签和说明共同表达系统健康状态。",
+      "html": "<div class=\"ds-health-cell\"><span class=\"ds-dot\"></span><div><strong>运行正常</strong><span>所有核心服务可用</span></div></div>",
+      "css": ".ds-health-cell{display:flex;align-items:center;gap:10px;padding:13px 16px;border:1px solid rgba(151,177,211,.14);background:rgba(13,24,39,.82);color:#f2f6fb;border-radius:12px;font-family:var(--dsw-font-family,\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif)}.ds-health-cell>div{display:flex;flex-direction:column}.ds-health-cell strong{font-size:12px;font-weight:600}.ds-health-cell div span{font-size:10.5px;color:#71849b}.ds-dot{width:7px;height:7px;border-radius:50%;background:#46d9c2;box-shadow:0 2px 8px rgba(0,0,0,.35)}"
+    },
+    {
+      "name": "Grade Chip",
+      "kind": "chip",
+      "description": "岗位等级的固定尺寸徽记；S 级使用正常青绿。",
+      "html": "<span class=\"ds-grade ds-grade-s\">S</span>",
+      "css": ".ds-grade{display:grid;place-items:center;width:32px;height:32px;border:1px solid rgba(95,150,255,.28);border-radius:8px;color:#66a3ff;font:700 12px var(--dsw-font-family,\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif)}.ds-grade-s{color:#46d9c2}"
+    },
+    {
+      "name": "Evidence Row",
+      "kind": "custom",
+      "description": "稳定排列名称、元数据与右对齐关键数值的证据行。",
+      "html": "<div class=\"ds-evidence\"><div><strong>产品经理</strong><small>示例公司 · 上海</small></div><span>92</span></div>",
+      "css": ".ds-evidence{display:flex;align-items:center;gap:12px;min-height:67px;padding:10px 3px;border-bottom:1px solid rgba(151,177,211,.14);color:#f2f6fb;font-family:var(--dsw-font-family,\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif)}.ds-evidence>div{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.ds-evidence strong{font-size:12.5px}.ds-evidence small{color:#71849b;font-size:10.5px}.ds-evidence>span{color:#66a3ff;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "暮光任务舱",
+    "overview": "界面像一间低照度、持续运行的任务舱：深石墨与冷蓝黑承载高密度状态，钴蓝标出可操作路径，青绿、琥珀与珊瑚红只承担明确的运行语义。科技感来自精密网格、克制边线、稳定位置和数字层级，而不是霓虹装饰。\n\n首页先给出“是否正常”和最值得关注的结论，再以数字和列表作为证据。模块位置固定，异常只改变提醒与状态表达，不触发布局重排；没有大型欢迎区，也不把看板做成通用后台模板。",
+    "keyCharacteristics": [
+      "深石墨与冷蓝黑的低照度工作环境",
+      "钴蓝交互、青绿正常、琥珀关注、珊瑚红异常",
+      "结论优先，数据作为判断证据",
+      "12 列固定项目网格与克制的响应式折叠",
+      "细冷色边线、低位柔和阴影、宿主字体"
+    ],
+    "rules": [
+      { "name": "The Semantic Color Rule", "body": "青绿、琥珀与珊瑚红必须对应正常、关注与异常，不把状态色当作无意义装饰。", "section": "colors" },
+      { "name": "The No Neon Rule", "body": "保持低照度与克制对比，不使用霓虹光晕或高饱和赛博背景。", "section": "colors" },
+      { "name": "The Conclusion First Rule", "body": "项目结论的字号和权重高于项目描述与元数据，数字不得反客为主。", "section": "typography" },
+      { "name": "The Fixed Position Rule", "body": "状态变化只改变语义提示，不自动重排项目模块。", "section": "layout" },
+      { "name": "The Low Lift Rule", "body": "阴影只提供低位层级，不把卡片塑造成漂浮面板。", "section": "elevation" }
+    ],
+    "dos": [
+      "Do 先呈现运行结论，再呈现列表、指标与解释证据。",
+      "Do 保持项目固定位置，并在 900px 与 560px 断点按既定顺序折叠。",
+      "Do 沿用宿主字体与键盘焦点，确保颜色之外仍有文本和结构提示。",
+      "Do 使用细冷色边线与低位阴影维持层级。"
+    ],
+    "donts": [
+      "Don't 使用霓虹光、强烈赛博装饰或高饱和大面积背景。",
+      "Don't 加入占据首屏的大型欢迎语、装饰性 Hero 或无信息价值占位。",
+      "Don't 因状态或排序变化自动移动项目模块。",
+      "Don't 把首页变成复杂写操作或完整配置入口。"
+    ]
+  }
+}

@@ -60,6 +60,8 @@ export function createWorkbench(face: WorkbenchFace, t: Translate) {
   const ControlRoom = createControlRoom({
     inventory: face.projectCtx.inventory,
     projects: face.projects,
+    projectCtx: face.projectCtx,
+    workbenchSync: face.workbenchSync,
     onOpen: (id) => face.history.push(id),
   }, t)
   const HostView = createHostView({ inventory: face.projectCtx.inventory }, t)

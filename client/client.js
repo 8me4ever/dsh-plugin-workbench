@@ -32,10 +32,361 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/client/ControlRoom.ts
-var import_react3 = require("react");
+var import_react2 = require("react");
+
+// src/client/store.ts
+var import_react = require("react");
+function createValueStore(initial) {
+  let value = initial;
+  const listeners = /* @__PURE__ */ new Set();
+  return {
+    get: () => value,
+    set(next) {
+      if (next === value) return;
+      value = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    }
+  };
+}
+function createInventoryStore(read) {
+  const store = createValueStore({ status: "idle", entries: [], readAt: 0, error: "" });
+  let inFlight = null;
+  const refresh = () => {
+    if (inFlight !== null) return inFlight;
+    store.set({ ...store.get(), status: "loading" });
+    inFlight = read().then((entries) => {
+      store.set({ status: "ready", entries, readAt: Date.now(), error: "" });
+    }).catch((err) => {
+      const message4 = err instanceof Error ? err.message : String(err);
+      const previous = store.get();
+      store.set({ status: "error", entries: previous.entries, readAt: previous.readAt, error: message4 });
+    }).finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  };
+  return {
+    get: store.get,
+    set: store.set,
+    subscribe: store.subscribe,
+    refresh
+  };
+}
+function useStoreValue(store) {
+  const [value, setValue] = (0, import_react.useState)(store.get());
+  (0, import_react.useEffect)(() => store.subscribe(() => setValue(store.get())), [store]);
+  return value;
+}
+
+// src/client/views.ts
+var CONTROL_ROOM_ID = "control-room";
+var HOST_ID = "host";
+var SYNC_ID = "sync";
+var PANEL_ID = "workbench";
+function slotViewId(index) {
+  return `slot:${index}`;
+}
+function slotIndexOf(viewId) {
+  if (!viewId.startsWith("slot:")) return null;
+  const index = Number.parseInt(viewId.slice(5), 10);
+  return Number.isInteger(index) && index >= 0 ? index : null;
+}
+function pad2(n) {
+  return n < 10 ? `0${n}` : String(n);
+}
+function slotLabel(index, t) {
+  return `${t("slot")} ${pad2(index + 1)}`;
+}
+function isKnownView(viewId, slotCount) {
+  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID || viewId === SYNC_ID) return true;
+  const index = slotIndexOf(viewId);
+  return index !== null && index < slotCount;
+}
+function clampViewId(viewId, slotCount) {
+  return isKnownView(viewId, slotCount) ? viewId : CONTROL_ROOM_ID;
+}
+
+// src/client/ControlRoom.ts
+var C = {
+  bg: "#09111d",
+  panel: "#0d1827",
+  line: "rgba(151, 177, 211, .14)",
+  lineStrong: "rgba(95, 150, 255, .28)",
+  text: "#f2f6fb",
+  text2: "#aebed1",
+  text3: "#71849b",
+  blue: "#66a3ff",
+  cyan: "#46d9c2",
+  amber: "#f4b86a",
+  red: "#ff737c"
+};
+function createControlRoom(face, _t) {
+  return function ControlRoom() {
+    const inventory = useStoreValue(face.inventory);
+    const [data, setData] = (0, import_react2.useState)({ jobs: [], analysis: null, sync: null, jobError: "", researchError: "", syncError: "" });
+    const [refreshKey, setRefreshKey] = (0, import_react2.useState)(0);
+    (0, import_react2.useEffect)(() => {
+      let live = true;
+      const tasks = [];
+      const jobFace = face.projectCtx?.jobRadar();
+      if (jobFace !== void 0) tasks.push(jobFace.list().then((result) => {
+        if (live) setData((old) => ({ ...old, jobs: result.jobs, jobError: "" }));
+      }).catch((error62) => {
+        if (live) setData((old) => ({ ...old, jobError: message(error62) }));
+      }));
+      const researchFace = face.projectCtx?.tablewareRadar();
+      if (researchFace !== void 0) tasks.push(researchFace.getAnalysis().then((analysis2) => {
+        if (live) setData((old) => ({ ...old, analysis: analysis2, researchError: "" }));
+      }).catch((error62) => {
+        if (live) setData((old) => ({ ...old, researchError: message(error62) }));
+      }));
+      const syncFace = face.workbenchSync?.();
+      if (syncFace !== void 0) tasks.push(syncFace.preview().then((sync) => {
+        if (live) setData((old) => ({ ...old, sync, syncError: "" }));
+      }).catch((error62) => {
+        if (live) setData((old) => ({ ...old, syncError: message(error62) }));
+      }));
+      void Promise.allSettled(tasks);
+      return () => {
+        live = false;
+      };
+    }, [refreshKey]);
+    const counts = {
+      total: inventory.entries.length,
+      active: inventory.entries.filter((entry) => entry.fiberPhase === "active").length,
+      failed: inventory.entries.filter((entry) => entry.fiberPhase === "failed").length,
+      disabled: inventory.entries.filter((entry) => !entry.enabled).length
+    };
+    const problems = counts.failed + Number(inventory.status === "error") + Number(Boolean(data.syncError)) + Number(Boolean(data.jobError)) + Number(Boolean(data.researchError));
+    return (0, import_react2.createElement)(
+      "div",
+      { "data-dashboard": "twilight", className: "dsh-dash" },
+      (0, import_react2.createElement)("style", null, DASHBOARD_CSS),
+      header(problems, data, () => {
+        void face.inventory.refresh();
+        setRefreshKey((key) => key + 1);
+      }),
+      healthRail(problems, counts, data, inventory.error),
+      (0, import_react2.createElement)(
+        "main",
+        { className: "dsh-grid" },
+        jobWidget(data, () => face.onOpen(slotViewId(0))),
+        researchWidget(data, () => face.onOpen(slotViewId(1))),
+        syncWidget(data.sync, data.syncError, () => face.onOpen(SYNC_ID))
+      )
+    );
+  };
+}
+function header(problems, data, refresh) {
+  const ready = Number(data.jobs.length > 0) + Number(data.analysis !== null);
+  return (0, import_react2.createElement)("header", { className: "dsh-head" }, (0, import_react2.createElement)(
+    "div",
+    null,
+    (0, import_react2.createElement)("h1", null, "\u4E2A\u4EBA\u5DE5\u4F5C\u53F0"),
+    (0, import_react2.createElement)("p", null, problems > 0 ? `${problems} \u9879\u72B6\u6001\u9700\u8981\u5173\u6CE8` : `${ready} \u4E2A\u9879\u76EE\u6B63\u5E38 \xB7 \u5173\u952E\u6570\u636E\u5DF2\u5C31\u7EEA`)
+  ), (0, import_react2.createElement)("button", { type: "button", className: "dsh-action", onClick: refresh }, refreshGlyph(), "\u5237\u65B0\u6570\u636E"));
+}
+function healthRail(problems, counts, data, inventoryError) {
+  const syncText = data.sync === null ? data.syncError ? "\u540C\u6B65\u72B6\u6001\u8BFB\u53D6\u5931\u8D25" : "\u6B63\u5728\u8BFB\u53D6\u540C\u6B65\u72B6\u6001" : data.sync.blockers.length ? data.sync.blockers[0] : `${data.sync.branch} \xB7 \u2191${data.sync.ahead} \u2193${data.sync.behind}`;
+  return (0, import_react2.createElement)(
+    "section",
+    { className: "dsh-health", "aria-label": "\u7CFB\u7EDF\u72B6\u6001" },
+    statusCell(problems === 0 ? C.cyan : C.amber, problems === 0 ? "\u8FD0\u884C\u6B63\u5E38" : "\u9700\u8981\u5173\u6CE8", problems === 0 ? "\u6240\u6709\u6838\u5FC3\u670D\u52A1\u53EF\u7528" : `${problems} \u9879\u8BFB\u53D6\u5F02\u5E38`),
+    statusCell(C.blue, "\u4E1A\u52A1\u9879\u76EE", `${Number(data.jobs.length > 0) + Number(data.analysis !== null)} / 2 \u5DF2\u5C31\u7EEA`),
+    statusCell(data.sync?.blockers.length ? C.amber : C.cyan, "\u4EE3\u7801\u540C\u6B65", syncText),
+    inventoryError ? statusCell(C.red, "\u5BBF\u4E3B\u72B6\u6001\u8BFB\u53D6\u5931\u8D25", inventoryError) : counts.failed > 0 ? statusCell(C.red, "\u5BBF\u4E3B\u5F02\u5E38", `${counts.failed} \u4E2A\u63D2\u4EF6\u542F\u52A8\u5931\u8D25`) : (0, import_react2.createElement)("div", { className: "dsh-health-note" }, "\u53EA\u5448\u73B0\u9700\u8981\u884C\u52A8\u7684\u4FE1\u606F")
+  );
+}
+function statusCell(color, label, value) {
+  return (0, import_react2.createElement)(
+    "div",
+    { className: "dsh-health-cell" },
+    (0, import_react2.createElement)("span", { className: "dsh-dot", style: { background: color } }),
+    (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("strong", null, label), (0, import_react2.createElement)("span", null, value))
+  );
+}
+function jobWidget(data, open2) {
+  const jobs = [...data.jobs].filter((job2) => job2.status !== "rejected").sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 5);
+  const high = data.jobs.filter((job2) => (job2.grade === "S" || job2.grade === "A") && job2.status !== "rejected").length;
+  return (0, import_react2.createElement)(
+    "section",
+    { className: "dsh-widget dsh-widget-main" },
+    widgetHead("slot:0", "Job Radar", high > 0 ? `${high} \u4E2A\u9AD8\u5339\u914D\u5C97\u4F4D\u503C\u5F97\u5173\u6CE8` : "\u67E5\u770B\u5F53\u524D\u6700\u5339\u914D\u7684\u5C97\u4F4D", "\u67E5\u770B\u5168\u90E8", open2, radarGlyph()),
+    data.jobError ? errorLine(`\u5C97\u4F4D\u6570\u636E\u8BFB\u53D6\u5931\u8D25\uFF1A${data.jobError}`) : jobs.length === 0 ? emptyLine("\u6682\u65F6\u6CA1\u6709\u53EF\u5C55\u793A\u7684\u5C97\u4F4D") : (0, import_react2.createElement)("div", { className: "dsh-job-list" }, ...jobs.map(jobRow))
+  );
+}
+function jobRow(job2) {
+  const hits = job2.details?.skill_hits?.slice(0, 3) ?? [];
+  const place = [job2.company, job2.city].filter(Boolean).join(" \xB7 ") || "\u516C\u53F8\u4E0E\u5730\u70B9\u5F85\u8865\u5145";
+  return (0, import_react2.createElement)(
+    "div",
+    { key: String(job2.id), className: "dsh-job-row", "data-dashboard-job": String(job2.id) },
+    (0, import_react2.createElement)("span", { className: "dsh-grade", "data-grade": job2.grade ?? "" }, job2.grade ?? "\u2014"),
+    (0, import_react2.createElement)(
+      "span",
+      { className: "dsh-job-copy" },
+      (0, import_react2.createElement)("strong", null, job2.title ?? "\u672A\u547D\u540D\u5C97\u4F4D"),
+      (0, import_react2.createElement)("small", null, place),
+      hits.length ? (0, import_react2.createElement)("span", { className: "dsh-reasons" }, hits.map((hit) => `# ${hit}`).join("   ")) : null
+    ),
+    (0, import_react2.createElement)("span", { className: "dsh-score" }, (0, import_react2.createElement)("strong", null, String(job2.score ?? "\u2014")), (0, import_react2.createElement)("small", null, "\u5339\u914D\u5206"))
+  );
+}
+function researchWidget(data, open2) {
+  const analysis2 = data.analysis;
+  const priorities = [...analysis2?.selection_priority ?? []].sort((a, b) => (b.opportunity ?? 0) - (a.opportunity ?? 0));
+  const opportunities2 = [...analysis2?.opportunities ?? []].sort((a, b) => (b.opportunity ?? 0) - (a.opportunity ?? 0)).slice(0, 4);
+  const lead = priorities[0];
+  const conclusion = dimensionName(analysis2, lead?.dimension);
+  return (0, import_react2.createElement)(
+    "section",
+    { className: "dsh-widget dsh-widget-main" },
+    widgetHead("slot:1", "\u51FA\u6D77\u4E1A\u52A1\u7528\u6237\u8C03\u7814", conclusion ? `\u4F18\u5148\u5173\u6CE8\uFF1A${conclusion}` : "\u6838\u5FC3\u673A\u4F1A\u4E0E\u5173\u952E\u56E0\u7D20", "\u67E5\u770B\u8BE6\u60C5", open2, researchGlyph()),
+    data.researchError ? errorLine(`\u8C03\u7814\u6570\u636E\u8BFB\u53D6\u5931\u8D25\uFF1A${data.researchError}`) : analysis2 === null ? emptyLine("\u5206\u6790\u7ED3\u679C\u5C1A\u672A\u751F\u6210") : (0, import_react2.createElement)(
+      "div",
+      { className: "dsh-research-body" },
+      lead?.reason ? (0, import_react2.createElement)("p", { className: "dsh-lead-reason" }, lead.reason) : null,
+      (0, import_react2.createElement)("div", { className: "dsh-factor-list" }, ...opportunities2.map((item, index) => (0, import_react2.createElement)(
+        "div",
+        { key: item.dimension ?? String(index), className: "dsh-factor-row", "data-dashboard-factor": item.dimension ?? String(index) },
+        (0, import_react2.createElement)("span", { className: "dsh-factor-rank" }, String(index + 1).padStart(2, "0")),
+        (0, import_react2.createElement)(
+          "span",
+          { className: "dsh-factor-copy" },
+          (0, import_react2.createElement)("strong", null, dimensionName(analysis2, item.dimension) || item.dimension || "\u672A\u547D\u540D\u7EF4\u5EA6"),
+          (0, import_react2.createElement)("small", null, item.supplier_action || "\u7ED3\u5408\u8BE5\u7EF4\u5EA6\u7EE7\u7EED\u9A8C\u8BC1\u4EA7\u54C1\u65B9\u6848")
+        ),
+        (0, import_react2.createElement)("span", { className: "dsh-factor-value" }, formatScore(item.opportunity))
+      )))
+    )
+  );
+}
+function syncWidget(status, error62, open2) {
+  const clean = status !== null && status.files.length === 0 && status.ahead === 0 && status.behind === 0 && status.blockers.length === 0;
+  return (0, import_react2.createElement)(
+    "section",
+    { className: "dsh-widget dsh-sync" },
+    (0, import_react2.createElement)("div", { className: "dsh-sync-title" }, syncGlyph(), (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("strong", null, "\u540C\u6B65\u4E2D\u5FC3"), (0, import_react2.createElement)("span", null, "\u4EE3\u7801\u3001\u4E1A\u52A1\u72B6\u6001\u4E0E\u7CBE\u9009\u7ED3\u679C"))),
+    error62 ? (0, import_react2.createElement)("span", { className: "dsh-sync-error" }, error62) : status === null ? (0, import_react2.createElement)("span", { className: "dsh-muted" }, "\u6B63\u5728\u8BFB\u53D6\u2026") : (0, import_react2.createElement)(
+      "div",
+      { className: "dsh-sync-stats" },
+      metric("\u5206\u652F", status.branch || "(detached)"),
+      metric("\u5F85\u4E0A\u4F20", String(status.ahead)),
+      metric("\u5F85\u4E0B\u8F7D", String(status.behind)),
+      (0, import_react2.createElement)("span", { className: clean ? "dsh-clean" : "dsh-attention" }, clean ? "\u5DE5\u4F5C\u533A\u5E72\u51C0" : `${status.files.length} \u4E2A\u672C\u5730\u6539\u52A8`)
+    ),
+    (0, import_react2.createElement)("button", { type: "button", className: "dsh-link", "data-card": SYNC_ID, "data-claimed": "yes", onClick: open2 }, "\u6253\u5F00\u540C\u6B65\u9884\u89C8", chevron())
+  );
+}
+function widgetHead(viewId, title, conclusion, action, open2, iconNode) {
+  return (0, import_react2.createElement)(
+    "div",
+    { className: "dsh-widget-head" },
+    iconNode,
+    (0, import_react2.createElement)("div", { className: "dsh-widget-title" }, (0, import_react2.createElement)("h2", null, title), (0, import_react2.createElement)("p", null, conclusion)),
+    (0, import_react2.createElement)("button", { type: "button", className: "dsh-link", "data-card": viewId, "data-claimed": "yes", onClick: open2 }, action, chevron())
+  );
+}
+function dimensionName(analysis2, id) {
+  if (!id) return "";
+  return analysis2?.dimensions?.find((dimension) => dimension.id === id)?.name ?? id;
+}
+function formatScore(value) {
+  return typeof value !== "number" ? "\u2014" : value <= 1 ? `${Math.round(value * 100)}%` : value.toFixed(1);
+}
+function metric(label, value) {
+  return (0, import_react2.createElement)("span", { className: "dsh-metric" }, (0, import_react2.createElement)("small", null, label), (0, import_react2.createElement)("strong", null, value));
+}
+function errorLine(text) {
+  return (0, import_react2.createElement)("div", { className: "dsh-error" }, text);
+}
+function emptyLine(text) {
+  return (0, import_react2.createElement)("div", { className: "dsh-empty" }, text);
+}
+function message(error62) {
+  return error62 instanceof Error ? error62.message : String(error62);
+}
+function icon(paths) {
+  return (0, import_react2.createElement)("svg", { className: "dsh-icon", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...paths.map((d) => (0, import_react2.createElement)("path", { key: d, d })));
+}
+function radarGlyph() {
+  return icon(["M12 3a9 9 0 1 0 9 9", "M12 7a5 5 0 1 0 5 5", "M12 11a1 1 0 1 0 1 1", "M12 12 19 5"]);
+}
+function researchGlyph() {
+  return icon(["M4 19V9", "M10 19V5", "M16 19v-7", "M22 19V3"]);
+}
+function syncGlyph() {
+  return icon(["M20 7h-5V2", "M4 17h5v5", "M6.1 8A7 7 0 0 1 18 5l2 2", "M17.9 16A7 7 0 0 1 6 19l-2-2"]);
+}
+function refreshGlyph() {
+  return icon(["M20 11a8 8 0 1 0-2.3 5.7", "M20 4v7h-7"]);
+}
+function chevron() {
+  return icon(["m9 18 6-6-6-6"]);
+}
+var DASHBOARD_CSS = `
+.dsh-dash{min-height:100%;margin:-20px -24px -28px;padding:26px 28px 34px;box-sizing:border-box;color:${C.text};background:radial-gradient(900px 260px at 55% -80px,rgba(53,112,225,.24),transparent 70%),linear-gradient(180deg,#0a1422 0%,${C.bg} 65%);font-family:var(--dsw-font-family,"PingFang SC","Microsoft YaHei",system-ui,sans-serif)}.dsh-dash *{box-sizing:border-box}.dsh-dash ::selection{background:rgba(102,163,255,.35);color:#fff}.dsh-dash button:focus-visible{outline:2px solid ${C.blue};outline-offset:3px}
+.dsh-head{display:flex;align-items:center;gap:20px;margin-bottom:18px}.dsh-head>div{flex:1}.dsh-head h1{margin:0;font-size:25px;line-height:1.25;letter-spacing:-.025em}.dsh-head p{margin:5px 0 0;color:${C.text2};font-size:12px}.dsh-action,.dsh-link{display:inline-flex;align-items:center;gap:7px;border:1px solid ${C.lineStrong};background:rgba(15,31,50,.75);color:${C.text2};font:inherit;font-size:12px;border-radius:8px;padding:7px 10px;cursor:pointer}.dsh-action:hover,.dsh-link:hover{color:${C.text};border-color:rgba(102,163,255,.55);background:#142641}.dsh-action .dsh-icon,.dsh-link .dsh-icon{width:14px;height:14px}
+.dsh-health{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid ${C.line};background:rgba(13,24,39,.82);border-radius:12px;margin-bottom:12px;overflow:hidden}.dsh-health-cell{display:flex;align-items:center;gap:10px;padding:13px 16px;border-right:1px solid ${C.line};min-width:0}.dsh-health-cell>div{display:flex;flex-direction:column;min-width:0}.dsh-health-cell strong{font-size:12px;font-weight:600}.dsh-health-cell span:not(.dsh-dot){font-size:10.5px;color:${C.text3};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-dot{width:7px;height:7px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.35);flex:0 0 auto}.dsh-health-note{display:flex;align-items:center;justify-content:flex-end;padding:13px 16px;color:${C.text3};font-size:10.5px}
+.dsh-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}.dsh-widget{border:1px solid ${C.line};background:linear-gradient(145deg,rgba(16,30,48,.94),rgba(11,22,36,.96));border-radius:13px;box-shadow:0 12px 30px rgba(0,0,0,.18);overflow:hidden}.dsh-widget-main{grid-column:span 6;min-height:430px;padding:20px}.dsh-widget-head{display:flex;align-items:flex-start;gap:12px;padding-bottom:17px;border-bottom:1px solid ${C.line}}.dsh-icon{width:20px;height:20px;color:${C.blue};flex:0 0 auto}.dsh-widget-head>.dsh-icon{width:30px;height:30px;padding:6px;border:1px solid ${C.lineStrong};border-radius:9px;background:rgba(53,112,225,.1)}.dsh-widget-title{flex:1;min-width:0}.dsh-widget-title h2{margin:0;font-size:17px;line-height:1.25;letter-spacing:-.015em}.dsh-widget-title p{margin:6px 0 0;color:${C.text};font-size:18px;font-weight:650;line-height:1.35;letter-spacing:-.02em}
+.dsh-job-list{display:flex;flex-direction:column;margin-top:5px}.dsh-job-row{display:flex;align-items:center;gap:12px;width:100%;min-height:67px;padding:10px 3px;border-bottom:1px solid ${C.line}}.dsh-job-row:last-child{border-bottom:0}.dsh-grade{display:grid;place-items:center;width:32px;height:32px;border:1px solid ${C.lineStrong};border-radius:8px;color:${C.blue};font-weight:700}.dsh-grade[data-grade="S"]{color:${C.cyan}}.dsh-job-copy{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}.dsh-job-copy strong{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-job-copy small{color:${C.text3};font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-reasons{color:${C.text2};font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsh-score{display:flex;flex-direction:column;align-items:flex-end;min-width:42px}.dsh-score strong{font-size:18px;color:${C.blue};font-variant-numeric:tabular-nums}.dsh-score small{font-size:9px;color:${C.text3}}
+.dsh-research-body{padding-top:16px}.dsh-lead-reason{margin:0 0 14px;padding:10px 12px;border:1px solid ${C.line};border-radius:9px;background:rgba(102,163,255,.055);color:${C.text2};font-size:11.5px;line-height:1.55}.dsh-factor-list{display:flex;flex-direction:column}.dsh-factor-row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid ${C.line}}.dsh-factor-row:last-child{border-bottom:0}.dsh-factor-rank{font:600 10px/1 ui-monospace,monospace;color:${C.text3}}.dsh-factor-copy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.dsh-factor-copy strong{font-size:13px}.dsh-factor-copy small{color:${C.text2};font-size:10.5px;line-height:1.45}.dsh-factor-value{color:${C.cyan};font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+.dsh-sync{grid-column:span 12;display:flex;align-items:center;gap:22px;padding:15px 18px}.dsh-sync-title{display:flex;align-items:center;gap:10px;min-width:190px}.dsh-sync-title>div{display:flex;flex-direction:column}.dsh-sync-title strong{font-size:13px}.dsh-sync-title span{font-size:10px;color:${C.text3};margin-top:3px}.dsh-sync-stats{display:flex;align-items:center;gap:22px;flex:1}.dsh-metric{display:flex;flex-direction:column;min-width:54px}.dsh-metric small{font-size:9.5px;color:${C.text3}}.dsh-metric strong{font-size:14px;margin-top:3px;font-variant-numeric:tabular-nums}.dsh-clean{color:${C.cyan};font-size:11px}.dsh-attention{color:${C.amber};font-size:11px}.dsh-sync-error,.dsh-error{color:${C.red};font-size:11px}.dsh-muted,.dsh-empty{color:${C.text3};font-size:11px}.dsh-empty,.dsh-error{padding:22px 2px}
+@media(max-width:900px){.dsh-health{grid-template-columns:repeat(2,minmax(0,1fr))}.dsh-health-cell:nth-child(2){border-right:0}.dsh-widget-main{grid-column:span 12}.dsh-sync{align-items:flex-start;flex-wrap:wrap}.dsh-sync-stats{order:3;flex-basis:100%}}
+@media(max-width:560px){.dsh-dash{padding:20px 16px 28px}.dsh-head{align-items:flex-start}.dsh-health{grid-template-columns:1fr}.dsh-health-cell{border-right:0;border-bottom:1px solid ${C.line}}.dsh-health-note{justify-content:flex-start}.dsh-widget-main{padding:16px;min-height:0}.dsh-widget-head{flex-wrap:wrap}.dsh-widget-head .dsh-link{margin-left:42px}.dsh-sync-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.dsh-job-row{gap:8px}}
+`;
+
+// src/client/history.ts
+var MAX_DEPTH = 50;
+function createHistoryStore(initial) {
+  const store = createValueStore({ stack: [initial], cursor: 0 });
+  const step = (delta) => {
+    const state = store.get();
+    const cursor = state.cursor + delta;
+    if (cursor < 0 || cursor >= state.stack.length) return;
+    store.set({ stack: state.stack, cursor });
+  };
+  return {
+    get: store.get,
+    set: store.set,
+    subscribe: store.subscribe,
+    current: () => {
+      const state = store.get();
+      return state.stack[state.cursor] ?? initial;
+    },
+    push(viewId) {
+      const state = store.get();
+      if (state.stack[state.cursor] === viewId) return;
+      const kept = state.stack.slice(0, state.cursor + 1);
+      kept.push(viewId);
+      const overflow = Math.max(0, kept.length - MAX_DEPTH);
+      const stack = overflow > 0 ? kept.slice(overflow) : kept;
+      store.set({ stack, cursor: stack.length - 1 });
+    },
+    back: () => step(-1),
+    forward: () => step(1),
+    canBack: () => store.get().cursor > 0,
+    canForward: () => {
+      const state = store.get();
+      return state.cursor < state.stack.length - 1;
+    },
+    reset(viewId) {
+      store.set({ stack: [viewId], cursor: 0 });
+    }
+  };
+}
+
+// src/client/HostView.ts
+var import_react4 = require("react");
 
 // src/client/parts.ts
-var import_react = require("react");
+var import_react3 = require("react");
 
 // src/client/tokens.ts
 var T = {
@@ -115,7 +466,7 @@ function phaseColor(phase) {
 
 // src/client/parts.ts
 function sectionHeader(title, right = []) {
-  return (0, import_react.createElement)(
+  return (0, import_react3.createElement)(
     "div",
     {
       style: {
@@ -126,12 +477,12 @@ function sectionHeader(title, right = []) {
         borderBottom: `1px solid ${T.border1}`
       }
     },
-    (0, import_react.createElement)("span", { style: { ...SECTION_TITLE, flex: "1 1 auto" } }, title),
+    (0, import_react3.createElement)("span", { style: { ...SECTION_TITLE, flex: "1 1 auto" } }, title),
     ...right.filter((node2) => node2 !== null)
   );
 }
 function notice(text, color) {
-  return (0, import_react.createElement)(
+  return (0, import_react3.createElement)(
     "div",
     { style: { padding: "12px 0", color, fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
     text
@@ -144,7 +495,7 @@ function statusStrip(t, state, counts, onRefresh) {
     [t("stat.failed"), counts.failed, counts.failed > 0 ? T.danger : T.textDim],
     [t("stat.disabled"), counts.disabled, counts.disabled > 0 ? T.text3 : T.textDim]
   ];
-  return (0, import_react.createElement)(
+  return (0, import_react3.createElement)(
     "div",
     {
       style: {
@@ -158,336 +509,19 @@ function statusStrip(t, state, counts, onRefresh) {
         background: T.bgLayer2
       }
     },
-    ...cells.map(([label, value, color]) => (0, import_react.createElement)(
+    ...cells.map(([label, value, color]) => (0, import_react3.createElement)(
       "div",
       { key: label, style: { display: "flex", alignItems: "baseline", gap: 6 } },
-      (0, import_react.createElement)("span", { style: { fontSize: 11, color: T.text3 } }, label),
-      (0, import_react.createElement)("span", { style: { fontSize: 16, fontWeight: 500, lineHeight: 1.2, color } }, String(value))
+      (0, import_react3.createElement)("span", { style: { fontSize: 11, color: T.text3 } }, label),
+      (0, import_react3.createElement)("span", { style: { fontSize: 16, fontWeight: 500, lineHeight: 1.2, color } }, String(value))
     )),
-    (0, import_react.createElement)("span", { style: { flex: "1 1 auto" } }),
-    state.readAt > 0 ? (0, import_react.createElement)("span", { key: "at", style: HINT }, `${t("readAt")} ${new Date(state.readAt).toLocaleTimeString()}`) : null,
-    (0, import_react.createElement)("button", { key: "refresh", type: "button", onClick: onRefresh, style: OUTLINE_BUTTON }, t("refresh"))
+    (0, import_react3.createElement)("span", { style: { flex: "1 1 auto" } }),
+    state.readAt > 0 ? (0, import_react3.createElement)("span", { key: "at", style: HINT }, `${t("readAt")} ${new Date(state.readAt).toLocaleTimeString()}`) : null,
+    (0, import_react3.createElement)("button", { key: "refresh", type: "button", onClick: onRefresh, style: OUTLINE_BUTTON }, t("refresh"))
   );
-}
-
-// src/client/store.ts
-var import_react2 = require("react");
-function createValueStore(initial) {
-  let value = initial;
-  const listeners = /* @__PURE__ */ new Set();
-  return {
-    get: () => value,
-    set(next) {
-      if (next === value) return;
-      value = next;
-      for (const listener of listeners) listener();
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    }
-  };
-}
-function createInventoryStore(read) {
-  const store = createValueStore({ status: "idle", entries: [], readAt: 0, error: "" });
-  let inFlight = null;
-  const refresh = () => {
-    if (inFlight !== null) return inFlight;
-    store.set({ ...store.get(), status: "loading" });
-    inFlight = read().then((entries) => {
-      store.set({ status: "ready", entries, readAt: Date.now(), error: "" });
-    }).catch((err) => {
-      const message3 = err instanceof Error ? err.message : String(err);
-      const previous = store.get();
-      store.set({ status: "error", entries: previous.entries, readAt: previous.readAt, error: message3 });
-    }).finally(() => {
-      inFlight = null;
-    });
-    return inFlight;
-  };
-  return {
-    get: store.get,
-    set: store.set,
-    subscribe: store.subscribe,
-    refresh
-  };
-}
-function useStoreValue(store) {
-  const [value, setValue] = (0, import_react2.useState)(store.get());
-  (0, import_react2.useEffect)(() => store.subscribe(() => setValue(store.get())), [store]);
-  return value;
-}
-
-// src/client/views.ts
-var CONTROL_ROOM_ID = "control-room";
-var HOST_ID = "host";
-var SYNC_ID = "sync";
-var PANEL_ID = "workbench";
-function slotViewId(index) {
-  return `slot:${index}`;
-}
-function slotIndexOf(viewId) {
-  if (!viewId.startsWith("slot:")) return null;
-  const index = Number.parseInt(viewId.slice(5), 10);
-  return Number.isInteger(index) && index >= 0 ? index : null;
-}
-function pad2(n) {
-  return n < 10 ? `0${n}` : String(n);
-}
-function slotLabel(index, t) {
-  return `${t("slot")} ${pad2(index + 1)}`;
-}
-function isKnownView(viewId, slotCount) {
-  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID || viewId === SYNC_ID) return true;
-  const index = slotIndexOf(viewId);
-  return index !== null && index < slotCount;
-}
-function clampViewId(viewId, slotCount) {
-  return isKnownView(viewId, slotCount) ? viewId : CONTROL_ROOM_ID;
-}
-
-// src/client/ControlRoom.ts
-function createControlRoom(face, t) {
-  return function ControlRoom() {
-    const state = useStoreValue(face.inventory);
-    const entries = state.entries;
-    const counts = {
-      total: entries.length,
-      active: entries.filter((e) => e.fiberPhase === "active").length,
-      failed: entries.filter((e) => e.fiberPhase === "failed").length,
-      disabled: entries.filter((e) => !e.enabled).length
-    };
-    const claimed = face.projects.filter((p) => p !== null && p !== void 0).length;
-    return (0, import_react3.createElement)(
-      "div",
-      { style: { display: "flex", flexDirection: "column", gap: 22, maxWidth: 880 } },
-      statusStrip(t, state, counts, () => {
-        void face.inventory.refresh();
-      }),
-      // A failed read is worth saying out loud on the console: the counters above
-      // would otherwise read as "this profile really has zero plugins", and the
-      // host card would send you to a page that says nothing either. The cards
-      // below stay usable — they do not depend on the read.
-      state.status === "error" ? notice(state.error || t("error"), T.danger) : entries.length === 0 && state.status === "loading" ? notice(t("loading"), T.text3) : null,
-      section(
-        t("section.projects"),
-        [`${claimed} / ${face.projects.length}`],
-        cardGrid(face.projects.map((slot, index) => projectCard(t, slot, index, face.onOpen)))
-      ),
-      section(
-        t("section.host"),
-        [],
-        cardGrid([syncCard(t, face.onOpen), hostCard(t, counts, face.onOpen)])
-      )
-    );
-  };
-}
-function syncCard(t, onOpen) {
-  return card({
-    viewId: SYNC_ID,
-    claimed: true,
-    eyebrow: "Git",
-    title: t("sync"),
-    summary: t("sync.cardSummary"),
-    tag: t("sync.readOnly"),
-    tagColor: T.info,
-    icon: null,
-    onOpen
-  });
-}
-function section(title, meta3, children) {
-  return (0, import_react3.createElement)(
-    "section",
-    { style: { display: "flex", flexDirection: "column" } },
-    sectionHeader(
-      title,
-      meta3.map((value) => (0, import_react3.createElement)("span", { key: value, style: HINT }, value))
-    ),
-    children
-  );
-}
-function cardGrid(cards) {
-  return (0, import_react3.createElement)(
-    "div",
-    {
-      style: {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(216px, 1fr))",
-        gap: 10,
-        marginTop: 12
-      }
-    },
-    ...cards
-  );
-}
-function projectCard(t, slot, index, onOpen) {
-  const claimed = slot !== null && slot !== void 0;
-  const title = claimed ? slot.title() : slotLabel(index, t);
-  const summary2 = claimed && typeof slot.summary === "function" ? slot.summary() : t("slot.free.summary");
-  return card({
-    viewId: slotViewId(index),
-    claimed,
-    eyebrow: String(index + 1).padStart(2, "0"),
-    title,
-    summary: summary2,
-    tag: claimed ? t("slot.filled") : t("slot.free"),
-    tagColor: claimed ? T.ok : T.text3,
-    icon: claimed && typeof slot.icon === "function" ? slot.icon() : null,
-    onOpen
-  });
-}
-function hostCard(t, counts, onOpen) {
-  const summary2 = counts.failed > 0 ? `${counts.active} / ${counts.total} ${t("stat.active")} \xB7 ${counts.failed} ${t("stat.failed")}` : `${counts.active} / ${counts.total} ${t("stat.active")}`;
-  return card({
-    viewId: HOST_ID,
-    claimed: true,
-    eyebrow: "\u2014",
-    title: t("host"),
-    summary: summary2,
-    tag: counts.failed > 0 ? t("stat.failed") : t("slot.filled"),
-    tagColor: counts.failed > 0 ? T.danger : T.text3,
-    icon: hostGlyph(),
-    onOpen
-  });
-}
-function card(props) {
-  return (0, import_react3.createElement)(
-    "button",
-    {
-      key: props.viewId,
-      type: "button",
-      // Stable hook for the headless smoke test and the browser check.
-      "data-card": props.viewId,
-      "data-claimed": props.claimed ? "yes" : "no",
-      onClick: () => props.onOpen(props.viewId),
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-        gap: 6,
-        width: "100%",
-        boxSizing: "border-box",
-        textAlign: "left",
-        padding: "11px 13px 12px",
-        borderRadius: 10,
-        // Dashed while free: the outline is the only thing telling you this
-        // card is a placeholder rather than a project.
-        border: `1px ${props.claimed ? "solid" : "dashed"} ${props.claimed ? T.border1 : T.border2}`,
-        background: T.bgLayer1,
-        color: "inherit",
-        font: "inherit",
-        cursor: "pointer"
-      }
-    },
-    (0, import_react3.createElement)(
-      "div",
-      { style: { display: "flex", alignItems: "center", gap: 8, width: "100%" } },
-      props.icon,
-      (0, import_react3.createElement)("span", { style: { fontFamily: T.mono, fontSize: 11, color: T.textDim } }, props.eyebrow),
-      (0, import_react3.createElement)(
-        "span",
-        {
-          style: {
-            flex: "1 1 auto",
-            fontSize: 13,
-            fontWeight: 500,
-            color: props.claimed ? T.text1 : T.text2,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap"
-          }
-        },
-        props.title
-      ),
-      (0, import_react3.createElement)("span", { style: { flex: "0 0 auto", fontSize: 11, color: props.tagColor } }, props.tag),
-      chevron()
-    ),
-    (0, import_react3.createElement)("div", { style: { ...HINT, fontSize: 11.5, minHeight: 34 } }, props.summary)
-  );
-}
-function chevron() {
-  return (0, import_react3.createElement)(
-    "svg",
-    {
-      width: 12,
-      height: 12,
-      viewBox: "0 0 16 16",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: 1.5,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      "aria-hidden": true,
-      style: { flex: "0 0 auto", color: T.textDim }
-    },
-    (0, import_react3.createElement)("path", { d: "M6.2 3.6 10.6 8l-4.4 4.4" })
-  );
-}
-function hostGlyph() {
-  return (0, import_react3.createElement)(
-    "svg",
-    {
-      width: 14,
-      height: 14,
-      viewBox: "0 0 16 16",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: 1.3,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      "aria-hidden": true,
-      style: { flex: "0 0 auto", color: T.text3 }
-    },
-    (0, import_react3.createElement)("path", { d: "M8 2.2 14 5.4 8 8.6 2 5.4z" }),
-    (0, import_react3.createElement)("path", { d: "M2.6 8.4 8 11.3l5.4-2.9" }),
-    (0, import_react3.createElement)("path", { d: "M2.6 11.2 8 14.1l5.4-2.9" })
-  );
-}
-
-// src/client/history.ts
-var MAX_DEPTH = 50;
-function createHistoryStore(initial) {
-  const store = createValueStore({ stack: [initial], cursor: 0 });
-  const step = (delta) => {
-    const state = store.get();
-    const cursor = state.cursor + delta;
-    if (cursor < 0 || cursor >= state.stack.length) return;
-    store.set({ stack: state.stack, cursor });
-  };
-  return {
-    get: store.get,
-    set: store.set,
-    subscribe: store.subscribe,
-    current: () => {
-      const state = store.get();
-      return state.stack[state.cursor] ?? initial;
-    },
-    push(viewId) {
-      const state = store.get();
-      if (state.stack[state.cursor] === viewId) return;
-      const kept = state.stack.slice(0, state.cursor + 1);
-      kept.push(viewId);
-      const overflow = Math.max(0, kept.length - MAX_DEPTH);
-      const stack = overflow > 0 ? kept.slice(overflow) : kept;
-      store.set({ stack, cursor: stack.length - 1 });
-    },
-    back: () => step(-1),
-    forward: () => step(1),
-    canBack: () => store.get().cursor > 0,
-    canForward: () => {
-      const state = store.get();
-      return state.cursor < state.stack.length - 1;
-    },
-    reset(viewId) {
-      store.set({ stack: [viewId], cursor: 0 });
-    }
-  };
 }
 
 // src/client/HostView.ts
-var import_react4 = require("react");
 function createHostView(face, t) {
   return function HostView() {
     const state = useStoreValue(face.inventory);
@@ -615,7 +649,7 @@ var jobRadarProject = {
   id: JOB_RADAR_ID,
   title: () => "Job Radar",
   summary: () => "\u5C97\u4F4D\u770B\u677F \xB7 \u8BFB job-radar \u5FEB\u7167\uFF0C\u53EF\u76F4\u63A5\u6807\u8BB0\u72B6\u6001",
-  icon: () => radarGlyph(),
+  icon: () => radarGlyph2(),
   // `render` 由工作台直接调用，不能自己持有 hook 状态；所以它只把上下文
   // 交给一个真正的组件去渲染。
   render: (ctx) => (0, import_react5.createElement)(JobRadarView, { ctx })
@@ -642,7 +676,7 @@ function JobRadarView(props) {
       if (!live) return;
       setLoad({ status: "ready", jobs: res?.jobs ?? [], readAt: Date.now(), error: "" });
     }).catch((err) => {
-      if (live) setLoad({ status: "error", jobs: [], readAt: 0, error: message(err) });
+      if (live) setLoad({ status: "error", jobs: [], readAt: 0, error: message2(err) });
     });
     return () => {
       live = false;
@@ -669,7 +703,7 @@ function JobRadarView(props) {
         jobs: prev.jobs.map((j) => String(j.id) === key ? { ...j, status: next } : j)
       }));
     }).catch((err) => {
-      setLoad((prev) => ({ ...prev, error: `\u6807\u8BB0\u5931\u8D25\uFF1A${message(err)}` }));
+      setLoad((prev) => ({ ...prev, error: `\u6807\u8BB0\u5931\u8D25\uFF1A${message2(err)}` }));
     }).finally(() => {
       setPending("");
     });
@@ -1035,7 +1069,7 @@ function sourceError(error62, onRetry) {
     )
   );
 }
-function radarGlyph() {
+function radarGlyph2() {
   return (0, import_react5.createElement)(
     "svg",
     {
@@ -1054,7 +1088,7 @@ function radarGlyph() {
     (0, import_react5.createElement)("path", { d: "M8 8l4.2-5.4" })
   );
 }
-function message(err) {
+function message2(err) {
   return err instanceof Error ? err.message : String(err);
 }
 function tally(jobs, pick2) {
@@ -1187,7 +1221,7 @@ function placeholder(index, t) {
   );
 }
 function failure(index, err, t) {
-  const message3 = err instanceof Error ? err.message : String(err);
+  const message4 = err instanceof Error ? err.message : String(err);
   return (0, import_react6.createElement)(
     "div",
     {
@@ -1205,7 +1239,7 @@ function failure(index, err, t) {
       { style: { fontSize: 13, fontWeight: 500, color: T.danger } },
       `${slotLabel(index, t)} \xB7 ${t("slot.error")}`
     ),
-    (0, import_react6.createElement)("div", { style: { ...CODE, marginTop: 6, color: T.text2, wordBreak: "break-word" } }, message3)
+    (0, import_react6.createElement)("div", { style: { ...CODE, marginTop: 6, color: T.text2, wordBreak: "break-word" } }, message4)
   );
 }
 
@@ -1302,7 +1336,7 @@ function TablewareRadarView(props) {
         }
         setLoad({ status: "ready", analysis: analysis2, probe, readAt: Date.now(), error: "" });
       } catch (err) {
-        if (live) setLoad({ status: "error", analysis: null, probe: null, readAt: 0, error: message2(err) });
+        if (live) setLoad({ status: "error", analysis: null, probe: null, readAt: 0, error: message3(err) });
       }
     })();
     return () => {
@@ -1866,7 +1900,7 @@ function dishGlyph() {
     (0, import_react7.createElement)("circle", { cx: 8, cy: 8, r: 0.8, fill: "currentColor", stroke: "none" })
   );
 }
-function message2(err) {
+function message3(err) {
   return err instanceof Error ? err.message : String(err);
 }
 function str(value) {
@@ -2088,6 +2122,8 @@ function createWorkbench(face, t) {
   const ControlRoom = createControlRoom({
     inventory: face.projectCtx.inventory,
     projects: face.projects,
+    projectCtx: face.projectCtx,
+    workbenchSync: face.workbenchSync,
     onOpen: (id) => face.history.push(id)
   }, t);
   const HostView = createHostView({ inventory: face.projectCtx.inventory }, t);
@@ -3443,8 +3479,8 @@ function prefixIssues(path, issues) {
     return iss;
   });
 }
-function unwrapMessage(message3) {
-  return typeof message3 === "string" ? message3 : message3?.message;
+function unwrapMessage(message4) {
+  return typeof message4 === "string" ? message4 : message4?.message;
 }
 function attachSchema(issues, start, inst) {
   var _a3;
@@ -3462,7 +3498,7 @@ function finalizeIssue(iss, ctx, config2) {
       iss.schema = iss.inst;
   }
   const schemaError = iss.schema !== iss.inst ? iss.schema?._zod.def?.error : void 0;
-  const message3 = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
+  const message4 = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
   const full = {};
   for (const k of Object.keys(iss)) {
     if (k === "inst" || k === "schema" || k === "continue" || k === "input" || k === "__proto__")
@@ -3470,7 +3506,7 @@ function finalizeIssue(iss, ctx, config2) {
     full[k] = iss[k];
   }
   full.path ?? (full.path = []);
-  full.message = message3;
+  full.message = message4;
   if (ctx?.reportInput) {
     full.input = iss.input;
   }
@@ -5398,10 +5434,10 @@ function isValidJWT(token, algorithm = null) {
     const tokensParts = token.split(".");
     if (tokensParts.length !== 3)
       return false;
-    const [header] = tokensParts;
-    if (!header)
+    const [header2] = tokensParts;
+    if (!header2)
       return false;
-    const parsedHeader = JSON.parse(atob(header));
+    const parsedHeader = JSON.parse(atob(header2));
     if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
       return false;
     if (!parsedHeader.alg)
@@ -15181,8 +15217,8 @@ var globalRegistry = globalThis.__zod_globalRegistry;
 var INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
 var FALLBACK_FLAG = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
 var ZodCompileAsyncError = class extends Error {
-  constructor(message3 = "z.compile does not support async refinements, transforms, or checks") {
-    super(message3);
+  constructor(message4 = "z.compile does not support async refinements, transforms, or checks") {
+    super(message4);
     this.name = "ZodCompileAsyncError";
   }
 };
@@ -17874,12 +17910,12 @@ function initializeContext(params) {
     external: params?.external ?? void 0
   };
 }
-function handleUnrepresentable(schema, ctx, json2, params, message3) {
-  const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message: message3 }) : ctx.unrepresentable;
+function handleUnrepresentable(schema, ctx, json2, params, message4) {
+  const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message: message4 }) : ctx.unrepresentable;
   if (result === "any")
     return false;
   if (result === void 0 || result === "throw")
-    throw new Error(message3);
+    throw new Error(message4);
   Object.assign(json2, result);
   return true;
 }

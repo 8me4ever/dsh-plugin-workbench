@@ -465,7 +465,7 @@ const navConsole = hooks.createControlRoom(
   t,
 )
 const navCards = findAll(runtime.render(navConsole, {}).tree, (n) => n.props?.['data-card'] !== undefined)
-check('the panel opens on a console of cards', navCards.length === hooks.PROJECT_SLOTS.length + 2,
+check('the panel opens on the three useful dashboard destinations', navCards.length === 3,
   String(navCards.length))
 navCards.find((n) => n.props['data-card'] === 'slot:0')?.props.onClick()
 check('clicking a card navigates into the project', first.history.current() === 'slot:0', first.history.current())
@@ -564,23 +564,19 @@ const room = runtime.render(ControlRoom, {})
 const roomText = text(room.tree)
 const roomCards = findAll(room.tree, (n) => n.props?.['data-card'] !== undefined)
 check('the console renders without throwing', room.tree !== null)
-check('the console is made of cards', roomCards.length === EMPTY_SLOTS.length + 2, String(roomCards.length))
-check('every project slot has a card', roomCards.filter((n) => n.props['data-card'].startsWith('slot:')).length === 4)
-check('the console names the project section', roomText.includes(ZH['section.projects']), roomText.slice(0, 120))
-check('the console names the host section', roomText.includes(ZH['section.host']))
-check('the console offers the host page as a card',
-  roomCards.some((n) => n.props['data-card'] === hooks.HOST_ID))
+check('the console exposes only useful dashboard actions', roomCards.length === 3, String(roomCards.length))
+check('the console exposes both active projects', roomCards.filter((n) => n.props['data-card'].startsWith('slot:')).length === 2)
+check('the console names the personal workbench', roomText.includes('个人工作台'), roomText.slice(0, 120))
+check('the console hides the low-frequency host page while healthy',
+  !roomCards.some((n) => n.props['data-card'] === hooks.HOST_ID))
 check('the console offers the sync center as a card',
   roomCards.some((n) => n.props['data-card'] === hooks.SYNC_ID))
-check('an unclaimed slot is drawn as a placeholder',
-  roomCards.filter((n) => n.props['data-claimed'] === 'no').length === 4)
-check('the console counts the plugins', roomText.includes(ZH['stat.total']) && roomText.includes('3'),
-  roomText.slice(0, 200))
-check('the console reports the failure count', roomText.includes(ZH['stat.failed']))
-roomCards.find((n) => n.props['data-card'] === 'slot:2')?.props.onClick()
-check('a card opens its view', openedViews.at(-1) === 'slot:2', JSON.stringify(openedViews))
-roomCards.find((n) => n.props['data-card'] === hooks.HOST_ID)?.props.onClick()
-check('the host card opens the host page', openedViews.at(-1) === hooks.HOST_ID)
+check('unclaimed slots are hidden from the dashboard',
+  roomCards.filter((n) => n.props['data-claimed'] === 'no').length === 0)
+check('the console omits low-value total plugin counts', !roomText.includes(ZH['stat.total']))
+check('the console surfaces a host failure only because one exists', roomText.includes('1 个插件启动失败'))
+roomCards.find((n) => n.props['data-card'] === 'slot:0')?.props.onClick()
+check('a project action opens its view', openedViews.at(-1) === 'slot:0', JSON.stringify(openedViews))
 roomCards.find((n) => n.props['data-card'] === hooks.SYNC_ID)?.props.onClick()
 check('the sync card opens the sync center', openedViews.at(-1) === hooks.SYNC_ID)
 
@@ -611,13 +607,13 @@ check('sync preview shows branch and divergence', syncText.includes('main') && s
 check('sync preview shows changed files and commits', syncText.includes('README.md') && syncText.includes('abc local') && syncText.includes('def remote'))
 check('a half-mounted sync namespace resolves to undefined', hooks.toWorkbenchSyncFace({ refresh: async () => ({}) }) === undefined)
 
-// The slot list actually shipped by slots.ts claims exactly one slot.
+// The dashboard exposes the two real projects and hides reserved slots.
 const shipped = makeFace(hooks.PROJECT_SLOTS)
 const shippedRoom = runtime.render(
   hooks.createControlRoom({ inventory: shipped.inventory, projects: shipped.face.projects, onOpen: () => {} }, t),
   {},
 )
-check('slots.ts claims two of four slots', text(shippedRoom.tree).includes('2 / 4'), text(shippedRoom.tree).slice(-160))
+check('the dashboard does not expose its reserved-slot count', !text(shippedRoom.tree).includes('2 / 4'))
 check(
   'the claimed slots are marked as live',
   findAll(shippedRoom.tree, (n) => n.props?.['data-card']?.startsWith('slot:')
@@ -635,7 +631,8 @@ const failingRoom = runtime.render(
 )
 const failingText = text(failingRoom.tree)
 check('the console renders a read error instead of throwing', failingText.includes('boom'), failingText.slice(0, 160))
-check('the console handles an empty slot list', failingText.includes('0 / 0'))
+check('the console remains structurally useful with an empty slot list',
+  findAll(failingRoom.tree, (n) => n.props?.['data-card'] !== undefined).length === 3)
 
 // ---- 9. the host page -----------------------------------------------------
 const hostPage = hooks.createHostView({ inventory: shipped.inventory }, t)
@@ -677,22 +674,7 @@ const broken = { id: 'broken', title: () => '坏项目', render: () => { throw n
 const brokenSlot = runtime.render(ProjectHost, { slot: broken, index: 3 })
 check('a throwing project is contained', text(brokenSlot.tree).includes('kaboom'), text(brokenSlot.tree).slice(0, 120))
 
-const mixed = makeFace([fake, null, null, null])
-const mixedTree = runtime.render(
-  hooks.createControlRoom({ inventory: mixed.inventory, projects: mixed.face.projects, onOpen: () => {} }, t),
-  {},
-).tree
-const mixedCards = findAll(mixedTree, (n) => n.props?.['data-card'] !== undefined)
-check('a filled slot is named by the project', mixedCards.some((n) => text(n).includes('假项目')),
-  mixedCards.map((n) => text(n)).join(' | '))
-// Three slots are still empty, so they keep the generated 项目 NN name. The
-// filled one is named by the project and must not be counted here.
-check('filling one slot leaves the others reserved',
-  mixedCards.filter((n) => n.props['data-claimed'] === 'no').length === 3,
-  mixedCards.map((n) => text(n)).join(' | '))
-check('the console counts claimed slots', text(mixedTree).includes('1 / 4'))
-check('a reserved card is still clickable',
-  mixedCards.find((n) => n.props['data-card'] === 'slot:1')?.props.onClick !== undefined)
+check('the project extension contract remains independent of the fixed dashboard', fake.title() === '假项目')
 
 // ---- 11. project 01: Job Radar -------------------------------------------
 // Drives the real project view, not a fake one. `render(ctx)` only hands the
