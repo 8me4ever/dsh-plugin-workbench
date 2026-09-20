@@ -1,0 +1,132 @@
+# 求职画像配置 —— 所有筛选/打分参数都在这改,改完重新打分即可
+# 基于 resume/陈梓铭简历.pdf 提炼(2026-08-27)
+# 方向:数据分析 / 数据科学 / AI 应用 / 数据产品
+
+# 目标城市(硬性过滤)
+cities:
+  - "北京"
+  - "深圳"
+
+# 月薪下限(元,取 JD 薪资区间的下限比较)
+salary_min: 18000
+
+# 期望经验区间(年,硬性过滤):硕士应届 + 数据咨询主管经验
+experience:
+  min: 0
+  max: 5
+
+# 最低学历(硬性过滤):大专 / 本科 / 硕士 / 博士
+education: "本科"
+
+# 必须技能:JD 中必须出现(至少命中 1 个,硬性过滤)
+must_skills:
+  - "Python"
+  - "SQL"
+  - "数据分析"
+
+# 加分技能:命中越多分越高(软性评分 · 技能匹配度)
+plus_skills:
+  - name: "Python"
+    weight: 12
+  - name: "SQL"
+    weight: 10
+  - name: "数据分析"
+    weight: 10
+  - name: "数据可视化"
+    weight: 6
+  - name: "机器学习"
+    weight: 8
+  - name: "AI"
+    weight: 8
+  - name: "Prompt"
+    weight: 6
+  - name: "Excel"
+    weight: 4
+  - name: "Tableau"
+    weight: 6
+  - name: "Power BI"
+    weight: 6
+  - name: "数据清洗"
+    weight: 5
+  - name: "指标体系"
+    weight: 6
+  - name: "报告"
+    weight: 4
+  - name: "客户沟通"
+    weight: 4
+  - name: "C++"
+    weight: 3
+  - name: "统计学"
+    weight: 6
+  - name: "pandas"
+    weight: 5
+  - name: "numpy"
+    weight: 5
+  - name: "数据产品"
+    weight: 6
+  - name: "商业分析"
+    weight: 5
+  - name: "AB测试"
+    weight: 5
+  - name: "实验"
+    weight: 4
+  - name: "ETL"
+    weight: 4
+  - name: "数据仓库"
+    weight: 5
+  - name: "BI"
+    weight: 5
+  - name: "spark"
+    weight: 5
+  - name: "hive"
+    weight: 5
+
+# 软性评分权重(合计 100)
+weights:
+  skill: 40        # 技能匹配度
+  experience: 20   # 经验契合
+  company: 15      # 公司实力
+  freshness: 10    # 新鲜度
+  commute: 10      # 通勤/城市
+  other: 5         # 其他(福利)
+
+# 分级阈值(百分制)
+grades:
+  S: 85
+  A: 70
+  B: 55
+  C: 0
+
+# 公司实力加分关键词
+company_plus:
+  - "上市公司"
+  - "已上市"
+  - "融资"
+  - "独角兽"
+  - "A轮"
+  - "B轮"
+  - "C轮"
+  - "D轮"
+  - "500强"
+  - "外资"
+  - "咨询"
+
+# 福利加分关键词
+benefit_plus:
+  - "六险一金"
+  - "年终奖"
+  - "弹性工作"
+  - "远程"
+  - "股票"
+  - "期权"
+  - "免费三餐"
+  - "培训"
+
+# 个人画像(用于生成打招呼语)—— 基于 resume/陈梓铭简历.pdf 提炼
+personal:
+  name: "陈梓铭"
+  headline: "伯明翰大学数据科学硕士，3年数据咨询经验"
+  highlights:
+    - "曾任数据咨询主管，负责40+份薪酬报告、2万+条数据分析，服务30+客户"
+    - "主导敬业度项目，开发数据清洗+可视化自动化工具，交付周期缩短50%"
+    - "AI 工作流实战：搭建跨境电商选品系统，调研周期从1周缩短到1天"

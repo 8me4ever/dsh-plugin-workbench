@@ -1,0 +1,32 @@
+# 聚合订阅源配置 —— 在这里添加你想监控的 RSS/Atom 源
+#
+# ⚠️ 2026-08-27 实测结论(公司网络环境):
+#   ✅ Hacker News Jobs(hnrss.org/jobs)可用 —— 已启用
+#   ✅ GitHub Trending RSS 可用(非招聘,作技术趋势参考)
+#   ❌ RSSHub 公共实例全部超时/403(被墙或已关闭)
+#   ❌ 智联 API 返回空/触发安全验证;猎聘/51job/拉勾页面无内嵌数据(需登录态 → V2 半自动方案)
+#   ❌ remoteok / weworkremotely RSS 410/403
+#
+# RSSHub 招聘路由示例(自建实例或网络可达后启用):
+#   https://rsshub.app/zhaopin/北京/数据分析
+#   https://rsshub.app/lagou/jobs/数据分析/北京
+
+sources:
+  # ✅ 真实可用:Hacker News Jobs(YC 系创业公司,英文岗位,海外/远程)
+  #    HN 摘要只有链接,enrich_detail: true 会自动抓详情页补充 JD 正文
+  - name: "HN-Jobs"
+    url: "https://hnrss.org/jobs"
+    enabled: true
+    company: ""
+    enrich_detail: true
+
+  # 国内平台待 V2 半自动方案(浏览器登录态)再接入,这里先留位:
+  - name: "智联-数据分析-北京"
+    url: "https://fe-api.zhaopin.com/c/i/sou?cityId=530&kw=%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90"
+    enabled: false
+    company: ""
+
+  - name: "猎聘-python"
+    url: "https://www.liepin.com/zhaopin/?key=python"
+    enabled: false
+    company: ""

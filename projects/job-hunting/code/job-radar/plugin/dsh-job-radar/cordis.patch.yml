@@ -1,0 +1,4 @@
+# dsh-job-radar 插件补丁:注册服务端插件入口
+- insert:
+    - id: dsh-job-radar
+      name: dsh-job-radar

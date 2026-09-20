@@ -1,0 +1,56 @@
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 构建产物
+node_modules/
+dist/
+build/
+*.log
+
+# 环境与凭据
+.env
+.env.*
+*.local
+credentials*
+token*
+secret*
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+~$*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 大文件/压缩包(简历成品可能想保留,按需取消注释)
+# *.zip
+# *.rar
+# *.7z
+
+# job-radar 本地数据(SQLite 不入库;JSON 快照入库用于跨机同步)
+code/job-radar/data/*.db
+code/job-radar/data/*.db-journal
+code/job-radar/data/*.tmp
+
+# BOSS直聘 V2 spike(浏览器登录态 + 临时抓取产物,绝不可入库)
+code/job-radar/data/.boss_profile/
+code/job-radar/data/boss_*.png
+code/job-radar/data/boss_*.html
+code/job-radar/data/boss_*.json
+
+# dsh-job-radar 插件(node_modules 不入库;源码 + 构建产物入库)
+code/job-radar/plugin/**/node_modules/
+code/job-radar/plugin/**/pnpm-lock.yaml
