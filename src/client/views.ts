@@ -20,6 +20,7 @@ export const CONTROL_ROOM_ID = 'control-room'
 
 /** The host plugin-inventory view. Reserved, like the console. */
 export const HOST_ID = 'host'
+export const SYNC_ID = 'sync'
 
 /**
  * The `main` slot key this plugin claims — and, deliberately, the id of the
@@ -68,7 +69,7 @@ export function slotLabel(index: number, t: Translate): string {
  * before drawing, rather than assumed.
  */
 export function isKnownView(viewId: string, slotCount: number): boolean {
-  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID) return true
+  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID || viewId === SYNC_ID) return true
   const index = slotIndexOf(viewId)
   return index !== null && index < slotCount
 }

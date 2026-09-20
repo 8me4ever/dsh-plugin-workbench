@@ -48,9 +48,11 @@ import { toTablewareRadarFace } from './projects/tablewareRadarRemote.ts'
 import type { ProjectContext } from './projects/types.ts'
 import { createInventoryStore, createValueStore, type InventoryEntry } from './store.ts'
 import { createTrigger } from './Trigger.ts'
-import { CONTROL_ROOM_ID, HOST_ID, PANEL_ID, clampViewId, isKnownView, slotViewId } from './views.ts'
+import { CONTROL_ROOM_ID, HOST_ID, PANEL_ID, SYNC_ID, clampViewId, isKnownView, slotViewId } from './views.ts'
 import { createWorkbench } from './Workbench.ts'
+import { createSyncView } from './SyncView.ts'
 import { unifiedRemoteContribution } from './unifiedRemotes.ts'
+import { toWorkbenchSyncFace } from './workbenchSyncRemote.ts'
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'dsh-plugin-workbench'
@@ -251,6 +253,7 @@ export function apply(ctx: WorkbenchClientContext): void {
       history,
       projects: PROJECT_SLOTS,
       projectCtx,
+      workbenchSync: () => toWorkbenchSyncFace(resolveOptionalRemote(ctx, 'remote.workbenchSync')),
       close: () => select(null),
     }, t)))
   } catch {
@@ -275,6 +278,23 @@ export const DICT_ZH: Dict = {
   exit: '返回会话',
   'section.projects': '项目',
   'section.host': '宿主',
+  sync: '同步中心',
+  'sync.subtitle': '只读检查本地与远端 main 的差异；本阶段不会提交、合并或推送。',
+  'sync.cardSummary': '查看待上传、待下载和本地改动',
+  'sync.readOnly': '只读预览',
+  'sync.refresh': '获取远端并刷新',
+  'sync.unavailable': '同步服务尚未装载，请确认统一工作台宿主插件正在运行。',
+  'sync.branch': '当前分支',
+  'sync.ahead': '待上传提交',
+  'sync.behind': '待下载提交',
+  'sync.changes': '本地改动',
+  'sync.ready': '未发现会阻止同步预览的问题',
+  'sync.fetchedAt': '检查时间',
+  'sync.localChanges': '本地文件改动',
+  'sync.localCommits': '待上传提交',
+  'sync.remoteCommits': '待下载提交',
+  'sync.clean': '工作区没有改动',
+  'sync.none': '没有提交',
   slot: '项目',
   'slot.free': '预留',
   'slot.filled': '已接入',
@@ -310,6 +330,23 @@ export const DICT_EN: Dict = {
   exit: 'Back to chat',
   'section.projects': 'Projects',
   'section.host': 'Host',
+  sync: 'Sync center',
+  'sync.subtitle': 'Read-only comparison with origin/main. This phase never commits, rebases, or pushes.',
+  'sync.cardSummary': 'Inspect uploads, downloads, and local changes',
+  'sync.readOnly': 'read only',
+  'sync.refresh': 'Fetch and refresh',
+  'sync.unavailable': 'The sync service is not mounted.',
+  'sync.branch': 'Branch',
+  'sync.ahead': 'To upload',
+  'sync.behind': 'To download',
+  'sync.changes': 'Local changes',
+  'sync.ready': 'No preview blockers found',
+  'sync.fetchedAt': 'Checked',
+  'sync.localChanges': 'Local file changes',
+  'sync.localCommits': 'Commits to upload',
+  'sync.remoteCommits': 'Commits to download',
+  'sync.clean': 'Working tree is clean',
+  'sync.none': 'No commits',
   slot: 'Project',
   'slot.free': 'reserved',
   'slot.filled': 'live',
@@ -344,6 +381,7 @@ export const DICT_EN: Dict = {
 export const __testHooks = {
   CONTROL_ROOM_ID,
   HOST_ID,
+  SYNC_ID,
   PANEL_ID,
   JOB_RADAR_ID,
   TABLEWARE_RADAR_ID,
@@ -359,10 +397,12 @@ export const __testHooks = {
   createHostView,
   createProjectHost,
   createWorkbench,
+  createSyncView,
   jobRadarProject,
   jobRadarView: JobRadarView,
   toJobRadarFace,
   tablewareRadarProject,
   tablewareRadarView: TablewareRadarView,
   toTablewareRadarFace,
+  toWorkbenchSyncFace,
 }

@@ -11,6 +11,17 @@ const parameter = (name: string, schema: z.ZodType) => ({
 
 const job = z.record(z.string(), z.unknown())
 const analysis = z.record(z.string(), z.unknown())
+const syncStatus = z.object({
+  branch: z.string(),
+  isMain: z.boolean(),
+  ahead: z.number(),
+  behind: z.number(),
+  files: z.array(z.object({ path: z.string(), status: z.string(), tracked: z.boolean() })),
+  localCommits: z.array(z.string()),
+  remoteCommits: z.array(z.string()),
+  blockers: z.array(z.string()),
+  fetchedAt: z.string(),
+})
 
 export const unifiedRemoteContribution = {
   package: 'dsh-plugin-workbench',
@@ -45,6 +56,14 @@ export const unifiedRemoteContribution = {
       result: strict('dsh-plugin-workbench#AnalysisStatus', z.object({
         present: z.boolean(), path: z.string(), mtimeMs: z.number(), bytes: z.number(), generatedAt: z.union([z.string(), z.null()]),
       })),
+    },
+    {
+      id: 'dsh-plugin-workbench#workbenchSync/refresh', service: 'workbenchSync', namespace: 'workbenchSync', method: 'refresh',
+      invocation: { kind: 'direct' }, parameters: [], result: strict('dsh-plugin-workbench#SyncStatus', syncStatus),
+    },
+    {
+      id: 'dsh-plugin-workbench#workbenchSync/preview', service: 'workbenchSync', namespace: 'workbenchSync', method: 'preview',
+      invocation: { kind: 'direct' }, parameters: [], result: strict('dsh-plugin-workbench#SyncStatus', syncStatus),
     },
   ],
 }

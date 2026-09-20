@@ -19,13 +19,15 @@
 import { createElement as h, useEffect, type ReactElement } from 'react'
 import { createControlRoom } from './ControlRoom.ts'
 import { createHostView } from './HostView.ts'
+import { createSyncView } from './SyncView.ts'
 import type { HistoryState, HistoryStore } from './history.ts'
 import type { Translate } from './i18n.ts'
 import { createProjectHost } from './projects/host.ts'
 import type { ProjectContext, ProjectSlot } from './projects/types.ts'
 import { useStoreValue, type ValueStore } from './store.ts'
 import { OUTLINE_BUTTON, SCROLL, T } from './tokens.ts'
-import { clampViewId, CONTROL_ROOM_ID, HOST_ID, slotIndexOf, slotLabel, slotViewId } from './views.ts'
+import { clampViewId, CONTROL_ROOM_ID, HOST_ID, SYNC_ID, slotIndexOf, slotLabel, slotViewId } from './views.ts'
+import type { WorkbenchSyncFace } from './workbenchSyncRemote.ts'
 
 /** Everything the panel needs from the plugin entry point. */
 export interface WorkbenchFace {
@@ -41,6 +43,7 @@ export interface WorkbenchFace {
   projects: readonly ProjectSlot[]
   /** Handed to every project. */
   projectCtx: ProjectContext
+  workbenchSync(): WorkbenchSyncFace | undefined
   /** Hand the centre column back to the Conversation. */
   close(): void
 }
@@ -60,6 +63,7 @@ export function createWorkbench(face: WorkbenchFace, t: Translate) {
     onOpen: (id) => face.history.push(id),
   }, t)
   const HostView = createHostView({ inventory: face.projectCtx.inventory }, t)
+  const SyncView = createSyncView(face.workbenchSync, t)
 
   return function Workbench(): ReactElement {
     const history = useStoreValue(face.history)
@@ -120,7 +124,7 @@ export function createWorkbench(face: WorkbenchFace, t: Translate) {
           'data-view': viewId,
           style: { flex: '1 1 auto', minHeight: 0, padding: '20px 24px 28px', ...SCROLL },
         },
-        body(viewId, face, { ControlRoom, HostView, ProjectHost }),
+        body(viewId, face, { ControlRoom, HostView, SyncView, ProjectHost }),
       ),
     )
   }
@@ -130,6 +134,7 @@ export function createWorkbench(face: WorkbenchFace, t: Translate) {
 interface Views {
   ControlRoom: () => ReactElement
   HostView: () => ReactElement
+  SyncView: () => ReactElement
   ProjectHost: (props: { slot: ProjectSlot; index: number }) => ReactElement
 }
 
@@ -143,6 +148,7 @@ interface Views {
  */
 function body(viewId: string, face: WorkbenchFace, views: Views): ReactElement {
   if (viewId === HOST_ID) return h(views.HostView, { key: HOST_ID })
+  if (viewId === SYNC_ID) return h(views.SyncView, { key: SYNC_ID })
   const index = slotIndexOf(viewId)
   if (index === null) return h(views.ControlRoom, { key: CONTROL_ROOM_ID })
   return h(views.ProjectHost, {
@@ -155,6 +161,7 @@ function body(viewId: string, face: WorkbenchFace, views: Views): ReactElement {
 /** Title of a view, for the breadcrumb. */
 function viewTitle(t: Translate, face: WorkbenchFace, viewId: string): string {
   if (viewId === HOST_ID) return t('host')
+  if (viewId === SYNC_ID) return t('sync')
   const index = slotIndexOf(viewId)
   if (index === null) return t('console')
   const slot = face.projects[index]

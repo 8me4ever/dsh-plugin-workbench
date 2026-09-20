@@ -465,7 +465,7 @@ const navConsole = hooks.createControlRoom(
   t,
 )
 const navCards = findAll(runtime.render(navConsole, {}).tree, (n) => n.props?.['data-card'] !== undefined)
-check('the panel opens on a console of cards', navCards.length === hooks.PROJECT_SLOTS.length + 1,
+check('the panel opens on a console of cards', navCards.length === hooks.PROJECT_SLOTS.length + 2,
   String(navCards.length))
 navCards.find((n) => n.props['data-card'] === 'slot:0')?.props.onClick()
 check('clicking a card navigates into the project', first.history.current() === 'slot:0', first.history.current())
@@ -548,6 +548,7 @@ check('reset collapses the stack', hist.get().stack.length === 1 && !hist.canBac
 check('an unknown view id falls back to the console', hooks.clampViewId('slot:9', 4) === hooks.CONTROL_ROOM_ID)
 check('a slot inside the list stays valid', hooks.clampViewId('slot:3', 4) === 'slot:3')
 check('the host page is always a valid view', hooks.clampViewId(hooks.HOST_ID, 0) === hooks.HOST_ID)
+check('the sync center is always a valid view', hooks.clampViewId(hooks.SYNC_ID, 0) === hooks.SYNC_ID)
 check('a truncated slot list invalidates the slot view', hooks.isKnownView('slot:2', 2) === false)
 
 // ---- 8. the console -------------------------------------------------------
@@ -563,12 +564,14 @@ const room = runtime.render(ControlRoom, {})
 const roomText = text(room.tree)
 const roomCards = findAll(room.tree, (n) => n.props?.['data-card'] !== undefined)
 check('the console renders without throwing', room.tree !== null)
-check('the console is made of cards', roomCards.length === EMPTY_SLOTS.length + 1, String(roomCards.length))
+check('the console is made of cards', roomCards.length === EMPTY_SLOTS.length + 2, String(roomCards.length))
 check('every project slot has a card', roomCards.filter((n) => n.props['data-card'].startsWith('slot:')).length === 4)
 check('the console names the project section', roomText.includes(ZH['section.projects']), roomText.slice(0, 120))
 check('the console names the host section', roomText.includes(ZH['section.host']))
 check('the console offers the host page as a card',
   roomCards.some((n) => n.props['data-card'] === hooks.HOST_ID))
+check('the console offers the sync center as a card',
+  roomCards.some((n) => n.props['data-card'] === hooks.SYNC_ID))
 check('an unclaimed slot is drawn as a placeholder',
   roomCards.filter((n) => n.props['data-claimed'] === 'no').length === 4)
 check('the console counts the plugins', roomText.includes(ZH['stat.total']) && roomText.includes('3'),
@@ -578,6 +581,35 @@ roomCards.find((n) => n.props['data-card'] === 'slot:2')?.props.onClick()
 check('a card opens its view', openedViews.at(-1) === 'slot:2', JSON.stringify(openedViews))
 roomCards.find((n) => n.props['data-card'] === hooks.HOST_ID)?.props.onClick()
 check('the host card opens the host page', openedViews.at(-1) === hooks.HOST_ID)
+roomCards.find((n) => n.props['data-card'] === hooks.SYNC_ID)?.props.onClick()
+check('the sync card opens the sync center', openedViews.at(-1) === hooks.SYNC_ID)
+
+// ---- 8b. sync center -----------------------------------------------------
+const syncCalls = []
+const syncRaw = {
+  refresh: async () => {
+    syncCalls.push('refresh')
+    return { ok: true, value: {
+      branch: 'main', isMain: true, ahead: 1, behind: 2,
+      files: [{ path: 'README.md', status: ' M', tracked: true }],
+      localCommits: ['abc local'], remoteCommits: ['def remote'], blockers: [],
+      fetchedAt: new Date(0).toISOString(),
+    } }
+  },
+  preview: async () => ({ ok: true, value: {
+    branch: 'main', isMain: true, ahead: 0, behind: 0, files: [],
+    localCommits: [], remoteCommits: [], blockers: [], fetchedAt: new Date(0).toISOString(),
+  } }),
+}
+const syncFace = hooks.toWorkbenchSyncFace(syncRaw)
+check('the sync adapter accepts the mounted namespace', syncFace !== undefined)
+const SyncView = hooks.createSyncView(() => syncFace, t)
+const syncReady = await settle(SyncView, {})
+const syncText = text(syncReady.tree)
+check('opening sync performs the agreed read-only fetch', syncCalls.join(',') === 'refresh', syncCalls.join(','))
+check('sync preview shows branch and divergence', syncText.includes('main') && syncText.includes('1') && syncText.includes('2'), syncText)
+check('sync preview shows changed files and commits', syncText.includes('README.md') && syncText.includes('abc local') && syncText.includes('def remote'))
+check('a half-mounted sync namespace resolves to undefined', hooks.toWorkbenchSyncFace({ refresh: async () => ({}) }) === undefined)
 
 // The slot list actually shipped by slots.ts claims exactly one slot.
 const shipped = makeFace(hooks.PROJECT_SLOTS)

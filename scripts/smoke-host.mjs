@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const bundle = readFileSync(join(root, 'lib', 'index.js'), 'utf8')
 
-for (const symbol of ['JobRadarRuntime', 'TablewareRadarRuntime', 'jobRadar', 'tablewareRadar']) {
+for (const symbol of ['JobRadarRuntime', 'TablewareRadarRuntime', 'WorkbenchSyncRuntime', 'jobRadar', 'tablewareRadar', 'workbenchSync']) {
   assert.ok(bundle.includes(symbol), `host bundle is missing ${symbol}`)
 }
 
@@ -22,4 +22,4 @@ for (const key of ['generated_at', 'dimensions', 'by_asin', 'opportunities', 'da
   assert.ok(key in analysis, `analysis example is missing ${key}`)
 }
 
-console.log(`[dsh-plugin-workbench] host smoke ok: ${jobs.jobs.length} jobs + both unified remotes`)
+console.log(`[dsh-plugin-workbench] host smoke ok: ${jobs.jobs.length} jobs + all unified remotes`)

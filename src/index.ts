@@ -4,6 +4,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 export const name = 'dsh-plugin-workbench'
 export const inject: string[] = []
@@ -127,12 +128,79 @@ export class TablewareRadarRuntime extends TypertRemoteService {
   }
 }
 
+interface SyncFile { path: string; status: string; tracked: boolean }
+interface SyncStatus {
+  branch: string
+  isMain: boolean
+  ahead: number
+  behind: number
+  files: SyncFile[]
+  localCommits: string[]
+  remoteCommits: string[]
+  blockers: string[]
+  fetchedAt: string
+}
+
+export class WorkbenchSyncRuntime extends TypertRemoteService {
+  constructor(ctx: Context, private readonly workspace: string) {
+    super(ctx, 'workbenchSync')
+  }
+
+  private git(args: string[]): string {
+    return execFileSync('git', args, {
+      cwd: this.workspace,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trimEnd()
+  }
+
+  private status(fetchedAt: string): SyncStatus {
+    const branch = this.git(['branch', '--show-current'])
+    const counts = this.git(['rev-list', '--left-right', '--count', 'HEAD...origin/main']).split(/\s+/)
+    const raw = this.git(['status', '--porcelain=v1', '--untracked-files=all'])
+    const files = raw ? raw.split(/\r?\n/).filter(Boolean).map((line) => ({
+      status: line.slice(0, 2),
+      path: line.slice(3),
+      tracked: !line.startsWith('??'),
+    })) : []
+    const localCommits = this.git(['log', '--format=%h %s', 'origin/main..HEAD']).split('\n').filter(Boolean)
+    const remoteCommits = this.git(['log', '--format=%h %s', 'HEAD..origin/main']).split('\n').filter(Boolean)
+    const blockers: string[] = []
+    if (branch !== 'main') blockers.push(`当前分支是 ${branch || '(detached)'}，同步只支持 main`)
+    if (files.some((file) => /(?:U|AA|DD)/.test(file.status))) blockers.push('工作区存在尚未解决的 Git 冲突')
+    return {
+      branch,
+      isMain: branch === 'main',
+      ahead: Number(counts[0] ?? 0),
+      behind: Number(counts[1] ?? 0),
+      files,
+      localCommits,
+      remoteCommits,
+      blockers,
+      fetchedAt,
+    }
+  }
+
+  @Remote
+  refresh(): SyncStatus {
+    this.git(['fetch', '--prune', 'origin', 'main'])
+    return this.status(new Date().toISOString())
+  }
+
+  @Remote
+  preview(): SyncStatus {
+    return this.status(new Date().toISOString())
+  }
+}
+
 export function apply(ctx: Context, config?: Config): void {
   const workspace = resolveWorkspace(config)
   const jobDataDir = resolveDataDir(workspace, config?.jobDataDir, 'projects/job-hunting/code/job-radar/data')
   const tablewareDataDir = resolveDataDir(workspace, config?.tablewareDataDir, 'projects/tableware-radar/data')
   new JobRadarRuntime(ctx, jobDataDir)
   new TablewareRadarRuntime(ctx, tablewareDataDir)
+  new WorkbenchSyncRuntime(ctx, workspace)
   ctx.logger.info(`[dsh-plugin-workbench] unified host mounted; workspace=${workspace}`)
   if (!existsSync(workspace)) ctx.logger.warn(`[dsh-plugin-workbench] workspace does not exist: ${workspace}`)
 }

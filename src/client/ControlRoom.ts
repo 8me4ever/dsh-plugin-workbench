@@ -18,7 +18,7 @@ import { notice, sectionHeader, statusStrip } from './parts.ts'
 import type { ProjectSlot } from './projects/types.ts'
 import { useStoreValue, type InventoryStore } from './store.ts'
 import { HINT, T } from './tokens.ts'
-import { HOST_ID, slotLabel, slotViewId } from './views.ts'
+import { HOST_ID, SYNC_ID, slotLabel, slotViewId } from './views.ts'
 
 /** The four counters, as `parts.statusStrip` wants them. */
 interface Counts {
@@ -79,10 +79,24 @@ export function createControlRoom(face: ControlRoomFace, t: Translate) {
       section(
         t('section.host'),
         [],
-        cardGrid([hostCard(t, counts, face.onOpen)]),
+        cardGrid([syncCard(t, face.onOpen), hostCard(t, counts, face.onOpen)]),
       ),
     )
   }
+}
+
+function syncCard(t: Translate, onOpen: (id: string) => void): ReactElement {
+  return card({
+    viewId: SYNC_ID,
+    claimed: true,
+    eyebrow: 'Git',
+    title: t('sync'),
+    summary: t('sync.cardSummary'),
+    tag: t('sync.readOnly'),
+    tagColor: T.info,
+    icon: null,
+    onOpen,
+  })
 }
 
 /** A titled block, with an optional right-aligned count. */

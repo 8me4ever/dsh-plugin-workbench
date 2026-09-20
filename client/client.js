@@ -223,6 +223,7 @@ function useStoreValue(store) {
 // src/client/views.ts
 var CONTROL_ROOM_ID = "control-room";
 var HOST_ID = "host";
+var SYNC_ID = "sync";
 var PANEL_ID = "workbench";
 function slotViewId(index) {
   return `slot:${index}`;
@@ -239,7 +240,7 @@ function slotLabel(index, t) {
   return `${t("slot")} ${pad2(index + 1)}`;
 }
 function isKnownView(viewId, slotCount) {
-  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID) return true;
+  if (viewId === CONTROL_ROOM_ID || viewId === HOST_ID || viewId === SYNC_ID) return true;
   const index = slotIndexOf(viewId);
   return index !== null && index < slotCount;
 }
@@ -278,10 +279,23 @@ function createControlRoom(face, t) {
       section(
         t("section.host"),
         [],
-        cardGrid([hostCard(t, counts, face.onOpen)])
+        cardGrid([syncCard(t, face.onOpen), hostCard(t, counts, face.onOpen)])
       )
     );
   };
+}
+function syncCard(t, onOpen) {
+  return card({
+    viewId: SYNC_ID,
+    claimed: true,
+    eyebrow: "Git",
+    title: t("sync"),
+    summary: t("sync.cardSummary"),
+    tag: t("sync.readOnly"),
+    tagColor: T.info,
+    icon: null,
+    onOpen
+  });
 }
 function section(title, meta3, children) {
   return (0, import_react3.createElement)(
@@ -311,13 +325,13 @@ function cardGrid(cards) {
 function projectCard(t, slot, index, onOpen) {
   const claimed = slot !== null && slot !== void 0;
   const title = claimed ? slot.title() : slotLabel(index, t);
-  const summary = claimed && typeof slot.summary === "function" ? slot.summary() : t("slot.free.summary");
+  const summary2 = claimed && typeof slot.summary === "function" ? slot.summary() : t("slot.free.summary");
   return card({
     viewId: slotViewId(index),
     claimed,
     eyebrow: String(index + 1).padStart(2, "0"),
     title,
-    summary,
+    summary: summary2,
     tag: claimed ? t("slot.filled") : t("slot.free"),
     tagColor: claimed ? T.ok : T.text3,
     icon: claimed && typeof slot.icon === "function" ? slot.icon() : null,
@@ -325,13 +339,13 @@ function projectCard(t, slot, index, onOpen) {
   });
 }
 function hostCard(t, counts, onOpen) {
-  const summary = counts.failed > 0 ? `${counts.active} / ${counts.total} ${t("stat.active")} \xB7 ${counts.failed} ${t("stat.failed")}` : `${counts.active} / ${counts.total} ${t("stat.active")}`;
+  const summary2 = counts.failed > 0 ? `${counts.active} / ${counts.total} ${t("stat.active")} \xB7 ${counts.failed} ${t("stat.failed")}` : `${counts.active} / ${counts.total} ${t("stat.active")}`;
   return card({
     viewId: HOST_ID,
     claimed: true,
     eyebrow: "\u2014",
     title: t("host"),
-    summary,
+    summary: summary2,
     tag: counts.failed > 0 ? t("stat.failed") : t("slot.filled"),
     tagColor: counts.failed > 0 ? T.danger : T.text3,
     icon: hostGlyph(),
@@ -1982,7 +1996,93 @@ function glyph(size) {
 }
 
 // src/client/Workbench.ts
+var import_react10 = require("react");
+
+// src/client/SyncView.ts
 var import_react9 = require("react");
+function createSyncView(resolve, t) {
+  return function SyncView() {
+    const [status, setStatus] = (0, import_react9.useState)(null);
+    const [error62, setError] = (0, import_react9.useState)("");
+    const [loading2, setLoading] = (0, import_react9.useState)(false);
+    const load = async (fetchRemote) => {
+      const remote = resolve();
+      if (remote === void 0) {
+        setError(t("sync.unavailable"));
+        return;
+      }
+      setLoading(true);
+      setError("");
+      try {
+        setStatus(await (fetchRemote ? remote.refresh() : remote.preview()));
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setLoading(false);
+      }
+    };
+    (0, import_react9.useEffect)(() => {
+      void load(true);
+    }, []);
+    return (0, import_react9.createElement)(
+      "div",
+      { "data-sync-view": "", style: { display: "flex", flexDirection: "column", gap: 20, maxWidth: 880 } },
+      (0, import_react9.createElement)(
+        "div",
+        { style: { display: "flex", alignItems: "flex-start", gap: 12 } },
+        (0, import_react9.createElement)(
+          "div",
+          { style: { flex: "1 1 auto" } },
+          (0, import_react9.createElement)("h2", { style: { margin: 0, fontSize: 18, fontWeight: 600 } }, t("sync")),
+          (0, import_react9.createElement)("div", { style: HINT }, t("sync.subtitle"))
+        ),
+        (0, import_react9.createElement)("button", { type: "button", disabled: loading2, onClick: () => {
+          void load(true);
+        }, style: OUTLINE_BUTTON }, loading2 ? t("loading") : t("sync.refresh"))
+      ),
+      error62 ? notice(error62, T.danger) : null,
+      status === null && !error62 ? notice(t("loading"), T.text3) : null,
+      status === null ? null : summary(status, t),
+      status === null ? null : listSection(t("sync.localChanges"), status.files.map((file2) => `${file2.status}  ${file2.path}`), t("sync.clean")),
+      status === null ? null : listSection(t("sync.localCommits"), status.localCommits, t("sync.none")),
+      status === null ? null : listSection(t("sync.remoteCommits"), status.remoteCommits, t("sync.none"))
+    );
+  };
+}
+function summary(status, t) {
+  const cells = [
+    [t("sync.branch"), status.branch || "(detached)", status.isMain ? T.ok : T.danger],
+    [t("sync.ahead"), String(status.ahead), status.ahead ? T.warn : T.text1],
+    [t("sync.behind"), String(status.behind), status.behind ? T.info : T.text1],
+    [t("sync.changes"), String(status.files.length), status.files.length ? T.warn : T.text1]
+  ];
+  return (0, import_react9.createElement)(
+    "section",
+    { style: { display: "flex", flexDirection: "column", gap: 10 } },
+    (0, import_react9.createElement)(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 } },
+      ...cells.map(([label, value, color]) => (0, import_react9.createElement)(
+        "div",
+        { key: label, style: { border: `1px solid ${T.border1}`, borderRadius: 8, padding: "10px 12px", background: T.bgLayer2 } },
+        (0, import_react9.createElement)("div", { style: HINT }, label),
+        (0, import_react9.createElement)("div", { style: { color, fontSize: 18, fontWeight: 600 } }, value)
+      ))
+    ),
+    status.blockers.length ? notice(status.blockers.join("\n"), T.danger) : notice(t("sync.ready"), T.ok),
+    (0, import_react9.createElement)("div", { style: HINT }, `${t("sync.fetchedAt")} ${new Date(status.fetchedAt).toLocaleString()}`)
+  );
+}
+function listSection(title, rows, empty) {
+  return (0, import_react9.createElement)(
+    "section",
+    null,
+    sectionHeader(title),
+    rows.length === 0 ? notice(empty, T.text3) : (0, import_react9.createElement)("div", { style: { ...CODE, paddingTop: 8, whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rows.join("\n"))
+  );
+}
+
+// src/client/Workbench.ts
 function createWorkbench(face, t) {
   const ProjectHost = createProjectHost(face.projectCtx, t);
   const ControlRoom = createControlRoom({
@@ -1991,18 +2091,19 @@ function createWorkbench(face, t) {
     onOpen: (id) => face.history.push(id)
   }, t);
   const HostView = createHostView({ inventory: face.projectCtx.inventory }, t);
+  const SyncView = createSyncView(face.workbenchSync, t);
   return function Workbench() {
     const history = useStoreValue(face.history);
-    (0, import_react9.useEffect)(() => {
+    (0, import_react10.useEffect)(() => {
       face.shown.set(true);
       return () => {
         face.shown.set(false);
       };
     }, []);
-    (0, import_react9.useEffect)(() => {
+    (0, import_react10.useEffect)(() => {
       void face.projectCtx.inventory.refresh();
     }, []);
-    (0, import_react9.useEffect)(() => {
+    (0, import_react10.useEffect)(() => {
       const onKey = (event) => {
         if (!event.altKey) return;
         if (event.key === "ArrowLeft") face.history.back();
@@ -2012,7 +2113,7 @@ function createWorkbench(face, t) {
       return () => window.removeEventListener("keydown", onKey);
     }, []);
     const viewId = clampViewId(history.stack[history.cursor] ?? CONTROL_ROOM_ID, face.projects.length);
-    return (0, import_react9.createElement)(
+    return (0, import_react10.createElement)(
       "div",
       {
         "data-workbench": "",
@@ -2030,7 +2131,7 @@ function createWorkbench(face, t) {
         }
       },
       chrome(t, face, history, viewId),
-      (0, import_react9.createElement)(
+      (0, import_react10.createElement)(
         "div",
         {
           // Which view is in the body, as an attribute: the headless smoke test
@@ -2039,16 +2140,17 @@ function createWorkbench(face, t) {
           "data-view": viewId,
           style: { flex: "1 1 auto", minHeight: 0, padding: "20px 24px 28px", ...SCROLL }
         },
-        body2(viewId, face, { ControlRoom, HostView, ProjectHost })
+        body2(viewId, face, { ControlRoom, HostView, SyncView, ProjectHost })
       )
     );
   };
 }
 function body2(viewId, face, views) {
-  if (viewId === HOST_ID) return (0, import_react9.createElement)(views.HostView, { key: HOST_ID });
+  if (viewId === HOST_ID) return (0, import_react10.createElement)(views.HostView, { key: HOST_ID });
+  if (viewId === SYNC_ID) return (0, import_react10.createElement)(views.SyncView, { key: SYNC_ID });
   const index = slotIndexOf(viewId);
-  if (index === null) return (0, import_react9.createElement)(views.ControlRoom, { key: CONTROL_ROOM_ID });
-  return (0, import_react9.createElement)(views.ProjectHost, {
+  if (index === null) return (0, import_react10.createElement)(views.ControlRoom, { key: CONTROL_ROOM_ID });
+  return (0, import_react10.createElement)(views.ProjectHost, {
     key: slotViewId(index),
     slot: face.projects[index] ?? null,
     index
@@ -2056,6 +2158,7 @@ function body2(viewId, face, views) {
 }
 function viewTitle(t, face, viewId) {
   if (viewId === HOST_ID) return t("host");
+  if (viewId === SYNC_ID) return t("sync");
   const index = slotIndexOf(viewId);
   if (index === null) return t("console");
   const slot = face.projects[index];
@@ -2063,7 +2166,7 @@ function viewTitle(t, face, viewId) {
 }
 function chrome(t, face, history, viewId) {
   const atConsole = viewId === CONTROL_ROOM_ID;
-  return (0, import_react9.createElement)(
+  return (0, import_react10.createElement)(
     "div",
     {
       style: {
@@ -2083,12 +2186,12 @@ function chrome(t, face, history, viewId) {
       () => face.history.forward(),
       arrow("M5.6 3.2 10.4 8l-4.8 4.8")
     ),
-    (0, import_react9.createElement)("span", { style: { width: 1, height: 18, background: T.border1, margin: "0 6px" } }),
+    (0, import_react10.createElement)("span", { style: { width: 1, height: 18, background: T.border1, margin: "0 6px" } }),
     atConsole ? crumb(t("console"), CONTROL_ROOM_ID, null) : crumb(t("console"), CONTROL_ROOM_ID, () => face.history.push(CONTROL_ROOM_ID)),
     atConsole ? null : crumbSeparator(),
     atConsole ? null : crumb(viewTitle(t, face, viewId), viewId, null),
-    (0, import_react9.createElement)("span", { style: { flex: "1 1 auto" } }),
-    (0, import_react9.createElement)(
+    (0, import_react10.createElement)("span", { style: { flex: "1 1 auto" } }),
+    (0, import_react10.createElement)(
       "button",
       { type: "button", title: t("exit"), onClick: () => face.close(), style: OUTLINE_BUTTON },
       t("exit")
@@ -2096,7 +2199,7 @@ function chrome(t, face, history, viewId) {
   );
 }
 function crumb(label, viewId, onSelect) {
-  return (0, import_react9.createElement)(
+  return (0, import_react10.createElement)(
     "button",
     {
       key: viewId,
@@ -2120,14 +2223,14 @@ function crumb(label, viewId, onSelect) {
   );
 }
 function crumbSeparator() {
-  return (0, import_react9.createElement)(
+  return (0, import_react10.createElement)(
     "span",
     { key: "sep", style: { color: T.textDim, fontSize: 11, userSelect: "none" } },
     "\u203A"
   );
 }
 function navButton(id, label, enabled, onClick, glyph2) {
-  return (0, import_react9.createElement)(
+  return (0, import_react10.createElement)(
     "button",
     {
       type: "button",
@@ -2156,7 +2259,7 @@ function navButton(id, label, enabled, onClick, glyph2) {
   );
 }
 function arrow(d) {
-  return (0, import_react9.createElement)(
+  return (0, import_react10.createElement)(
     "svg",
     {
       width: 15,
@@ -2169,7 +2272,7 @@ function arrow(d) {
       strokeLinejoin: "round",
       "aria-hidden": true
     },
-    (0, import_react9.createElement)("path", { d })
+    (0, import_react10.createElement)("path", { d })
   );
 }
 
@@ -21623,8 +21726,8 @@ function fromJSONSchema(schema, params) {
 var RESOLVING = /* @__PURE__ */ Symbol("z.visit/resolving");
 function visit(schema, fnOrHandlers) {
   const fn = typeof fnOrHandlers === "function" ? fnOrHandlers : (node2, rewritten) => {
-    const h9 = fnOrHandlers[node2._zod.def.type];
-    return h9 ? h9(node2, rewritten) : node2;
+    const h10 = fnOrHandlers[node2._zod.def.type];
+    return h10 ? h10(node2, rewritten) : node2;
   };
   const cache = /* @__PURE__ */ new Map();
   function run(s) {
@@ -21851,6 +21954,17 @@ var parameter = (name2, schema) => ({
 });
 var job = external_exports.record(external_exports.string(), external_exports.unknown());
 var analysis = external_exports.record(external_exports.string(), external_exports.unknown());
+var syncStatus = external_exports.object({
+  branch: external_exports.string(),
+  isMain: external_exports.boolean(),
+  ahead: external_exports.number(),
+  behind: external_exports.number(),
+  files: external_exports.array(external_exports.object({ path: external_exports.string(), status: external_exports.string(), tracked: external_exports.boolean() })),
+  localCommits: external_exports.array(external_exports.string()),
+  remoteCommits: external_exports.array(external_exports.string()),
+  blockers: external_exports.array(external_exports.string()),
+  fetchedAt: external_exports.string()
+});
 var unifiedRemoteContribution = {
   package: "dsh-plugin-workbench",
   descriptors: [
@@ -21913,9 +22027,45 @@ var unifiedRemoteContribution = {
         bytes: external_exports.number(),
         generatedAt: external_exports.union([external_exports.string(), external_exports.null()])
       }))
+    },
+    {
+      id: "dsh-plugin-workbench#workbenchSync/refresh",
+      service: "workbenchSync",
+      namespace: "workbenchSync",
+      method: "refresh",
+      invocation: { kind: "direct" },
+      parameters: [],
+      result: strict("dsh-plugin-workbench#SyncStatus", syncStatus)
+    },
+    {
+      id: "dsh-plugin-workbench#workbenchSync/preview",
+      service: "workbenchSync",
+      namespace: "workbenchSync",
+      method: "preview",
+      invocation: { kind: "direct" },
+      parameters: [],
+      result: strict("dsh-plugin-workbench#SyncStatus", syncStatus)
     }
   ]
 };
+
+// src/client/workbenchSyncRemote.ts
+async function unwrap3(call, method) {
+  const result = await call;
+  if (result === null || typeof result !== "object" || result.ok !== true) {
+    throw new Error(result?.error?.message ?? `workbenchSync.${method} \u8C03\u7528\u5931\u8D25`);
+  }
+  return result.value;
+}
+function toWorkbenchSyncFace(raw) {
+  if (raw === null || typeof raw !== "object") return void 0;
+  const ns = raw;
+  if (typeof ns.refresh !== "function" || typeof ns.preview !== "function") return void 0;
+  return {
+    refresh: () => unwrap3(ns.refresh(), "refresh"),
+    preview: () => unwrap3(ns.preview(), "preview")
+  };
+}
 
 // src/client/index.ts
 var NS = "dsh-plugin-workbench";
@@ -21985,6 +22135,7 @@ function apply(ctx) {
       history,
       projects: PROJECT_SLOTS,
       projectCtx,
+      workbenchSync: () => toWorkbenchSyncFace(resolveOptionalRemote(ctx, "remote.workbenchSync")),
       close: () => select(null)
     }, t)));
   } catch {
@@ -22001,6 +22152,23 @@ var DICT_ZH = {
   exit: "\u8FD4\u56DE\u4F1A\u8BDD",
   "section.projects": "\u9879\u76EE",
   "section.host": "\u5BBF\u4E3B",
+  sync: "\u540C\u6B65\u4E2D\u5FC3",
+  "sync.subtitle": "\u53EA\u8BFB\u68C0\u67E5\u672C\u5730\u4E0E\u8FDC\u7AEF main \u7684\u5DEE\u5F02\uFF1B\u672C\u9636\u6BB5\u4E0D\u4F1A\u63D0\u4EA4\u3001\u5408\u5E76\u6216\u63A8\u9001\u3002",
+  "sync.cardSummary": "\u67E5\u770B\u5F85\u4E0A\u4F20\u3001\u5F85\u4E0B\u8F7D\u548C\u672C\u5730\u6539\u52A8",
+  "sync.readOnly": "\u53EA\u8BFB\u9884\u89C8",
+  "sync.refresh": "\u83B7\u53D6\u8FDC\u7AEF\u5E76\u5237\u65B0",
+  "sync.unavailable": "\u540C\u6B65\u670D\u52A1\u5C1A\u672A\u88C5\u8F7D\uFF0C\u8BF7\u786E\u8BA4\u7EDF\u4E00\u5DE5\u4F5C\u53F0\u5BBF\u4E3B\u63D2\u4EF6\u6B63\u5728\u8FD0\u884C\u3002",
+  "sync.branch": "\u5F53\u524D\u5206\u652F",
+  "sync.ahead": "\u5F85\u4E0A\u4F20\u63D0\u4EA4",
+  "sync.behind": "\u5F85\u4E0B\u8F7D\u63D0\u4EA4",
+  "sync.changes": "\u672C\u5730\u6539\u52A8",
+  "sync.ready": "\u672A\u53D1\u73B0\u4F1A\u963B\u6B62\u540C\u6B65\u9884\u89C8\u7684\u95EE\u9898",
+  "sync.fetchedAt": "\u68C0\u67E5\u65F6\u95F4",
+  "sync.localChanges": "\u672C\u5730\u6587\u4EF6\u6539\u52A8",
+  "sync.localCommits": "\u5F85\u4E0A\u4F20\u63D0\u4EA4",
+  "sync.remoteCommits": "\u5F85\u4E0B\u8F7D\u63D0\u4EA4",
+  "sync.clean": "\u5DE5\u4F5C\u533A\u6CA1\u6709\u6539\u52A8",
+  "sync.none": "\u6CA1\u6709\u63D0\u4EA4",
   slot: "\u9879\u76EE",
   "slot.free": "\u9884\u7559",
   "slot.filled": "\u5DF2\u63A5\u5165",
@@ -22035,6 +22203,23 @@ var DICT_EN = {
   exit: "Back to chat",
   "section.projects": "Projects",
   "section.host": "Host",
+  sync: "Sync center",
+  "sync.subtitle": "Read-only comparison with origin/main. This phase never commits, rebases, or pushes.",
+  "sync.cardSummary": "Inspect uploads, downloads, and local changes",
+  "sync.readOnly": "read only",
+  "sync.refresh": "Fetch and refresh",
+  "sync.unavailable": "The sync service is not mounted.",
+  "sync.branch": "Branch",
+  "sync.ahead": "To upload",
+  "sync.behind": "To download",
+  "sync.changes": "Local changes",
+  "sync.ready": "No preview blockers found",
+  "sync.fetchedAt": "Checked",
+  "sync.localChanges": "Local file changes",
+  "sync.localCommits": "Commits to upload",
+  "sync.remoteCommits": "Commits to download",
+  "sync.clean": "Working tree is clean",
+  "sync.none": "No commits",
   slot: "Project",
   "slot.free": "reserved",
   "slot.filled": "live",
@@ -22061,6 +22246,7 @@ var DICT_EN = {
 var __testHooks = {
   CONTROL_ROOM_ID,
   HOST_ID,
+  SYNC_ID,
   PANEL_ID,
   JOB_RADAR_ID,
   TABLEWARE_RADAR_ID,
@@ -22076,11 +22262,13 @@ var __testHooks = {
   createHostView,
   createProjectHost,
   createWorkbench,
+  createSyncView,
   jobRadarProject,
   jobRadarView: JobRadarView,
   toJobRadarFace,
   tablewareRadarProject,
   tablewareRadarView: TablewareRadarView,
-  toTablewareRadarFace
+  toTablewareRadarFace,
+  toWorkbenchSyncFace
 };
 return module.exports; } });

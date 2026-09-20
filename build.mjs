@@ -84,7 +84,7 @@ await esbuild.build({
   platform: 'node',
   target: ['node20'],
   tsconfigRaw: '{"compilerOptions":{"useDefineForClassFields":false}}',
-  external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-typert-protocol'],
+  external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-typert-protocol', 'node:child_process'],
   minify: false,
   sourcemap: false,
 })
