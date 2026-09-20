@@ -14,6 +14,7 @@ plugin/lib/
 # data/ 下的中间产物与日志一律忽略；但保留一份 analysis.json 示例入库，
 # 供工作台页面在无真实数据时也能开发（见 data/analysis.example.json）。
 data/*
+!data/analysis.json
 !data/analysis.example.json
 !data/.gitkeep
 

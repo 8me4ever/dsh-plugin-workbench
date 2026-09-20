@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-workbench",
   "description": "DSH 可视化工作台 — 侧栏底部入口，内置控制室 + 四个可自定义项目位",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -32,27 +32,38 @@
   "files": [
     "lib",
     "client",
+    "projects",
     "cordis.patch.yml",
     "README.md"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-typert-protocol": "*",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
       "optional": true
     },
+    "@deepseek-ai/dsh-typert-protocol": {
+      "optional": true
+    },
     "react": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "esbuild": "^0.28.0"
   },
   "scripts": {
     "build": "node build.mjs",
-    "smoke": "node scripts/smoke-client.mjs",
+    "smoke": "node scripts/smoke-client.mjs && node scripts/smoke-host.mjs",
+    "test:job-radar": "python -m pytest projects/job-hunting/code/job-radar/tests",
+    "test:tableware": "python -m pytest projects/tableware-radar/pipeline/tests",
+    "verify": "npm run build && npm run smoke && npm run test:job-radar && npm run test:tableware",
     "dev": "node scripts/dev.mjs"
   }
 }

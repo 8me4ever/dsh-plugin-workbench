@@ -50,6 +50,7 @@ import { createInventoryStore, createValueStore, type InventoryEntry } from './s
 import { createTrigger } from './Trigger.ts'
 import { CONTROL_ROOM_ID, HOST_ID, PANEL_ID, clampViewId, isKnownView, slotViewId } from './views.ts'
 import { createWorkbench } from './Workbench.ts'
+import { unifiedRemoteContribution } from './unifiedRemotes.ts'
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'dsh-plugin-workbench'
@@ -102,7 +103,10 @@ interface WorkbenchClientContext {
   effect(callback: () => unknown, label?: string): void
   locale: LocaleService
   slots: SlotsService
-  remote: { pluginInventory: PluginInventoryFace }
+  remote: {
+    pluginInventory: PluginInventoryFace
+    $mount(contribution: unknown): Promise<unknown>
+  }
   /**
    * Cordis' reflection service, used for *optional* lookups. A real builtin,
    * not something to declare in `inject`.
@@ -153,6 +157,12 @@ export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
  * @param ctx - client cordis context.
  */
 export function apply(ctx: WorkbenchClientContext): void {
+  void ctx.remote.$mount(unifiedRemoteContribution).then((dispose) => {
+    ctx.effect(
+      () => () => { if (typeof dispose === 'function') dispose() },
+      'dsh-plugin-workbench: unified remote contribution',
+    )
+  })
   ctx.effect(
     () => ctx.locale.register(NS, { zh: DICT_ZH, en: DICT_EN }),
     'dsh-plugin-workbench: dictionaries',

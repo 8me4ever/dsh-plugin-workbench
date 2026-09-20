@@ -311,6 +311,7 @@ const ctx = {
     register: (meta, component) => { registrations.push({ meta, component }); return () => {} },
   },
   remote: {
+    $mount: async () => () => {},
     pluginInventory: {
       list: async () => { readCount += 1; return { ok: true, value: { entries: ENTRIES } } },
     },
@@ -767,8 +768,8 @@ const missing = await settle(JobRadarView, { ctx: jobCtx(() => undefined) })
 const missingText = text(missing.tree)
 check('a missing data source renders an explanation, not a throw',
   find(missing.tree, (n) => n.props?.['data-job-source'] === 'missing') !== null)
-check('the explanation names the plugin to install',
-  missingText.includes('dsh-job-radar') && missingText.includes('dataDir'), missingText.slice(0, 240))
+check('the explanation names the unified reinstall command',
+  missingText.includes('npm run dev') && missingText.includes('同包交付'), missingText.slice(0, 240))
 
 // A failing read is reported next to a retry, and the project stays mounted.
 const brokenFace = {
@@ -957,11 +958,11 @@ const twMissing = await settle(TablewareRadarView, { ctx: tablewareCtx(() => und
 const twMissingText = text(twMissing.tree)
 check('a missing data face renders an explanation, not a throw',
   find(twMissing.tree, (n) => n.props?.['data-tableware'] === 'missing') !== null)
-check('the explanation names the plugin to install',
-  twMissingText.includes('dsh-tableware-radar') && twMissingText.includes('dsh plugin'),
+check('the explanation names the unified reinstall command',
+  twMissingText.includes('npm run dev') && twMissingText.includes('同包交付'),
   twMissingText.slice(0, 240))
-check('the explanation stresses the dependency is optional',
-  twMissingText.includes('可选'))
+check('the explanation says no separate plugin is needed',
+  twMissingText.includes('不再需要安装独立业务插件'))
 
 // Mounted but the pipeline has not run yet (analysis.json absent).
 tablewareFace = makeTablewareFace({ present: false })

@@ -22,7 +22,7 @@
  *   node scripts/dev.mjs --skip-smoke
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -37,6 +37,7 @@ const skipSmoke = argv.includes('--skip-smoke')
 /** The build artifacts whose content proves which bundle the profile serves. */
 const PROOFS = ['client/client.js', 'lib/index.js']
 const installedRoot = join(homedir(), '.dsh', 'profiles', profile, 'node_modules', pkg.name)
+const locationFile = join(homedir(), '.dsh', 'dsh-plugin-workbench.json')
 
 /** Read `--name value`. */
 function readFlag(name) {
@@ -97,6 +98,12 @@ function copyIsCurrent() {
 }
 
 run('build', join(root, 'build.mjs'))
+
+// The profile receives a packed copy, while Git operations and mutable snapshots
+// must target the real checkout. Keep that machine-local pointer outside Git.
+mkdirSync(dirname(locationFile), { recursive: true })
+writeFileSync(locationFile, `${JSON.stringify({ workspaceDir: root }, null, 2)}\n`, 'utf8')
+process.stdout.write(`\n▸ registered unified workspace\n  ${locationFile} → ${root}\n`)
 
 if (skipSmoke) {
   process.stdout.write('\n▸ smoke test skipped (--skip-smoke)\n')

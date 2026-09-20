@@ -630,11 +630,11 @@ function sourceMissing(): ReactElement {
     },
     h('div', { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, '出海业务用户调研的数据面未装载'),
     h('div', { style: { ...HINT, marginTop: 8 } },
-      '这个项目自己不读文件 —— 分析结果由 dsh-tableware-radar 插件通过 remote.tablewareRadar 提供。当前 profile 里没有解析到这个数据面，所以这里先空着。'),
-    h('div', { style: { ...HINT, marginTop: 8 } }, '把该插件装进同一个 profile，然后重启宿主：'),
-    codeBlock('dsh plugin --profile <profile> add "file:F:/Samuel/dsh-plugins/dsh-tableware-radar/plugin"'),
+      '分析结果由工作台内置的 remote.tablewareRadar 提供。当前尚未解析到该数据面，通常是宿主仍在启动或安装副本尚未刷新。'),
+    h('div', { style: { ...HINT, marginTop: 8 } }, '在统一仓库根目录重新构建并安装，然后重启宿主：'),
+    codeBlock('npm run dev -- --profile <profile>'),
     h('div', { style: { ...HINT, marginTop: 8, color: T.textDim } },
-      '注意：这个依赖是刻意做成可选的 —— 工作台的其余部分在它缺席时照常工作。'),
+      '该数据面与工作台同包交付，不再需要安装独立业务插件。'),
   )
 }
 

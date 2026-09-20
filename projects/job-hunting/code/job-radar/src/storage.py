@@ -29,6 +29,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _timestamp(value: str | None) -> datetime:
+    """Parse snapshot/SQLite timestamps from either Python (+00:00) or JS (Z)."""
+    if not value:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
 class Storage:
     """岗位数据存储:SQLite + JSON 快照。"""
 
@@ -209,8 +220,43 @@ class Storage:
 
     # ---------- JSON 快照 ----------
 
+    def _merge_newer_snapshot_statuses(self) -> None:
+        """Preserve status changes written by the unified DSH workbench.
+
+        ``jobs.json`` is the cross-device source of truth. The browser updates
+        that snapshot directly, while the Python pipeline keeps a rebuildable
+        SQLite index. Before Python exports the database again, bring across a
+        newer snapshot status so a later fetch/score cannot silently undo a
+        status selected in the workbench.
+        """
+        if not self.json_path.exists():
+            return
+        try:
+            snapshot = json.loads(self.json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        changed = False
+        for job in snapshot.get("jobs", []):
+            jid = job.get("id")
+            status = job.get("status")
+            if not jid or status not in ALL_STATUS:
+                continue
+            row = self._conn.execute(
+                "SELECT status, updated_at FROM jobs WHERE id=?", (jid,)
+            ).fetchone()
+            if row is None or _timestamp(job.get("updated_at")) <= _timestamp(row["updated_at"]):
+                continue
+            self._conn.execute(
+                "UPDATE jobs SET status=?, updated_at=? WHERE id=?",
+                (status, job.get("updated_at") or _now(), jid),
+            )
+            changed = True
+        if changed:
+            self._conn.commit()
+
     def export_json(self) -> None:
         """导出全量快照到 jobs.json(供 git 同步)。"""
+        self._merge_newer_snapshot_statuses()
         jobs = self.all_jobs()
         payload = {
             "version": 1,

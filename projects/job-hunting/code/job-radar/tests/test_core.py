@@ -140,6 +140,27 @@ class TestSoftScore:
 # ---------- 存储:JSON 快照往返 ----------
 
 class TestImportExportRoundtrip:
+    def test_export_preserves_newer_workbench_status(self, tmp_path):
+        """A status written to the Git snapshot must not be undone by SQLite."""
+        jd = parse_jd(
+            "岗位:后端工程师 工作地点:北京 薪资:30-50K 本科 3-5年 Python",
+            plus_skills=[],
+        )
+        storage = Storage(tmp_path)
+        jid = storage.upsert_job(jd, source="manual")
+
+        snapshot_path = tmp_path / "jobs.json"
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        snapshot["jobs"][0]["status"] = "applied"
+        snapshot["jobs"][0]["updated_at"] = "2999-01-01T00:00:00.000Z"
+        snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+
+        storage.export_json()
+        assert storage.get(jid)["status"] == "applied"
+        storage.close()
+        exported = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        assert exported["jobs"][0]["status"] == "applied"
+
     def test_import_reexport_preserves_reasons_and_details(self, tmp_path):
         """重建本地库后再导出,所有岗位的 reasons/details 应与原快照一致。
 

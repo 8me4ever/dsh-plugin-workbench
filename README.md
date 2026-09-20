@@ -1,8 +1,12 @@
 # dsh-plugin-workbench
 
+> **统一仓库**：Job Radar 与 Tableware Radar 已完整迁入 `projects/`，本包是
+> 唯一需要维护、同步和安装的 DSH 插件。仓库结构、数据边界和换机步骤见
+> [`docs/UNIFIED-REPOSITORY.md`](docs/UNIFIED-REPOSITORY.md)。
+
 DSH 的可视化工作台。侧栏底部一个入口，点一下 —— **右侧主区域整个变成工作台**：一张卡片式的控制台 + N 个自定义项目位。
 
-项目 01 已经接入 —— **Job Radar 岗位看板**。剩余三个项目位空着等你填。
+项目 01 **Job Radar** 与项目 02 **出海业务用户调研**均已接入，剩余两个项目位预留。
 
 > **版本要求：dsh >= 0.1.5-rc.2。** 工作台占的是 layout 的 `main` 插槽、靠 `ctx.layout.selectPanel()` 切换，
 > 这两个东西都是 0.1.5 的 layout 才有的。0.1.1 的 `LayoutController` 只有
@@ -60,19 +64,16 @@ DSH 的可视化工作台。侧栏底部一个入口，点一下 —— **右侧
 
 它展示三件你在第二个项目里会重复遇到的事：
 
-**1. 数据从哪来 —— 用别人的 Remote，不要自己读文件。**
-岗位数据由 `dsh-job-radar` 插件通过 `remote.jobRadar` 提供。这个项目**不拥有**数据，只是消费它，并且状态标记也走同一个 Remote 写回 —— 所以工作台里的这块屏和插件自带的 Job Radar 设置页看到的是同一份数据、同一条写入路径，不存在第二份 `jobs.json` 读取实现。
+**1. 数据从哪来 —— 由统一宿主 Remote 读写。**
+岗位数据由本插件宿主半部通过 `remote.jobRadar` 提供，状态标记也沿同一条 Remote 写回统一仓库里的 `jobs.json`，不存在第二份快照。
 
-**2. 可选依赖要当可选处理。**
-`remote.jobRadar` 属于另一个包，可能没装、也可能还没挂载完。所以它**没有**写进 `inject`，而是在每次读取时通过 `ctx.reflect.get('remote.jobRadar')` 现场解析（见 `projects/types.ts` 里 `ProjectContext.jobRadar` 的注释）。解析不到就渲染一张说明卡，而不是抛错：
+**2. 异步挂载要当暂态处理。**
+`remote.jobRadar` 与 UI 同包交付，但客户端数据面仍可能晚于页面挂载。因此它没有写进 `inject`，而是在每次读取时通过 `ctx.reflect.get('remote.jobRadar')` 现场解析；暂时解析不到就渲染说明卡，而不是带崩工作台。
 
-> 把 `remote.jobRadar` 写进 `inject` 会让整个工作台 —— 包括控制室和另外三个还没写的项目位 —— 一起去停等一个跟它们无关的插件。那是最容易犯、也最难查的错。
-
-想让项目 01 有数据，同一个 profile 里必须有 `dsh-job-radar` 且配好了 `dataDir`：
+只需在统一仓库根目录安装一次：
 
 ```bash
-dsh plugin --profile web add "file:<job-radar>/plugin/dsh-job-radar"
-# 并在 profile patch 里给它 config.dataDir 指向 job-radar 的 data 目录
+npm run dev -- --profile web
 ```
 
 **3. 拿到的不是友好对象，要在适配层里抹平。**
@@ -85,7 +86,7 @@ dsh plugin --profile web add "file:<job-radar>/plugin/dsh-job-radar"
 **4. 状态放在项目组件里，不进共享 store。**
 这份数据只有这一屏要看，切换导航时重新挂载、重新读一次快照正是想要的行为。控制室/入口那种"多处都要读"的才需要共享 store。
 
-> 相关：`remote.jobRadar` 之所以能在浏览器里出现，是 `dsh-job-radar` 的客户端半部自己调了 `ctx.remote.$mount(...)`，并且它的 `inject` 里必须有 `typert`。这两点都不是工作台能替它做的，详见工作台的 `src/client/index.ts` 顶部注释与 `dsh-plugin-dev` skill。
+> 两个业务 Remote 现在都由根插件的 `src/index.ts` 挂载；`projects/` 下旧插件目录仅保留迁移来源与历史，不再单独安装。
 
 ---
 

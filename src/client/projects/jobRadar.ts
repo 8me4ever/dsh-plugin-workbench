@@ -516,16 +516,16 @@ function sourceMissing(): ReactElement {
         background: T.bgLayer1,
       },
     },
-    h('div', { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, 'Job Radar 数据源未装载'),
+    h('div', { style: { fontSize: 13, fontWeight: 500, color: T.text1 } }, 'Job Radar 数据面尚未就绪'),
     h(
       'div',
       { style: { ...HINT, marginTop: 8 } },
-      '这个项目自己不读文件 —— 岗位数据由 dsh-job-radar 插件通过 remote.jobRadar 提供。当前 profile 里没有解析到这个数据面，所以这里先空着。',
+      '岗位数据由工作台内置的 remote.jobRadar 提供。当前尚未解析到该数据面，通常是宿主仍在启动或安装副本尚未刷新。',
     ),
     h(
       'div',
       { style: { ...HINT, marginTop: 8 } },
-      '要在工作台里看到岗位，把 dsh-job-radar 装进同一个 profile 并给它配好 dataDir（指向 job-radar 的 data 目录），然后重启宿主：',
+      '在统一仓库根目录重新构建并安装，然后重启宿主：',
     ),
     h(
       'div',
@@ -540,12 +540,12 @@ function sourceMissing(): ReactElement {
           wordBreak: 'break-all',
         },
       },
-      'dsh plugin --profile <profile> add "file:<job-radar>/plugin/dsh-job-radar"',
+      'npm run dev -- --profile <profile>',
     ),
     h(
       'div',
       { style: { ...HINT, marginTop: 8, color: T.textDim } },
-      '注意：这个依赖是刻意做成可选的 —— 工作台的其余部分在它缺席时照常工作。',
+      '该数据面与工作台同包交付，不再需要安装独立业务插件。',
     ),
   )
 }
