@@ -587,7 +587,7 @@ const syncRaw = {
     syncCalls.push('refresh')
     return { ok: true, value: {
       branch: 'main', isMain: true, ahead: 1, behind: 2,
-      files: [{ path: 'README.md', status: ' M', tracked: true }],
+      files: [{ path: 'README.md', status: ' M', tracked: true, bytes: 1200 }],
       localCommits: ['abc local'], remoteCommits: ['def remote'], blockers: [],
       fetchedAt: new Date(0).toISOString(),
     } }
@@ -596,6 +596,17 @@ const syncRaw = {
     branch: 'main', isMain: true, ahead: 0, behind: 0, files: [],
     localCommits: [], remoteCommits: [], blockers: [], fetchedAt: new Date(0).toISOString(),
   } }),
+  commitPreview: async (paths, message) => {
+    syncCalls.push(`commitPreview:${paths.join(',')}:${message}`)
+    return { ok: true, value: { paths, message, diff: '+updated readme', truncated: false, warnings: [], token: 'preview-token' } }
+  },
+  commit: async (paths, message, token) => {
+    syncCalls.push(`commit:${paths.join(',')}:${message}:${token}`)
+    return { ok: true, value: {
+      commit: 'c0ffee1',
+      status: { branch: 'main', isMain: true, ahead: 2, behind: 2, files: [], localCommits: ['c0ffee1 docs'], remoteCommits: [], blockers: [], fetchedAt: new Date(1).toISOString() },
+    } }
+  },
 }
 const syncFace = hooks.toWorkbenchSyncFace(syncRaw)
 check('the sync adapter accepts the mounted namespace', syncFace !== undefined)
@@ -606,6 +617,20 @@ check('opening sync performs the agreed read-only fetch', syncCalls.join(',') ==
 check('sync preview shows branch and divergence', syncText.includes('main') && syncText.includes('1') && syncText.includes('2'), syncText)
 check('sync preview shows changed files and commits', syncText.includes('README.md') && syncText.includes('abc local') && syncText.includes('def remote'))
 check('a half-mounted sync namespace resolves to undefined', hooks.toWorkbenchSyncFace({ refresh: async () => ({}) }) === undefined)
+const syncFile = find(syncReady.tree, (n) => n.props?.['data-sync-file'] === 'README.md')
+find(syncFile, (n) => n.type === 'input')?.props.onChange()
+let syncEditing = runtime.render(SyncView, {})
+find(syncEditing.tree, (n) => n.type === 'textarea')?.props.onChange({ target: { value: 'docs: update readme' } })
+syncEditing = runtime.render(SyncView, {})
+find(syncEditing.tree, (n) => n.props?.['data-sync-preview'] !== undefined)?.props.onClick()
+await new Promise((resolve) => setTimeout(resolve, 0))
+let syncConfirm = runtime.render(SyncView, {})
+check('sync requires a generated diff before confirmation', text(syncConfirm.tree).includes('+updated readme'))
+find(syncConfirm.tree, (n) => n.props?.['data-sync-commit'] !== undefined)?.props.onClick()
+await new Promise((resolve) => setTimeout(resolve, 0))
+const syncCommitted = runtime.render(SyncView, {})
+check('sync creates the local commit only after confirmation', syncCalls.some((call) => call.startsWith('commit:README.md:docs: update readme:preview-token')))
+check('sync reports the created local commit', text(syncCommitted.tree).includes('c0ffee1'))
 
 // The dashboard exposes the two real projects and hides reserved slots.
 const shipped = makeFace(hooks.PROJECT_SLOTS)

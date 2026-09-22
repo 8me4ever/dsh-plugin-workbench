@@ -16,11 +16,15 @@ const syncStatus = z.object({
   isMain: z.boolean(),
   ahead: z.number(),
   behind: z.number(),
-  files: z.array(z.object({ path: z.string(), status: z.string(), tracked: z.boolean() })),
+  files: z.array(z.object({ path: z.string(), status: z.string(), tracked: z.boolean(), bytes: z.number(), blocker: z.string().optional() })),
   localCommits: z.array(z.string()),
   remoteCommits: z.array(z.string()),
   blockers: z.array(z.string()),
   fetchedAt: z.string(),
+})
+const commitPreview = z.object({
+  paths: z.array(z.string()), message: z.string(), diff: z.string(), truncated: z.boolean(),
+  warnings: z.array(z.string()), token: z.string(),
 })
 
 export const unifiedRemoteContribution = {
@@ -64,6 +68,17 @@ export const unifiedRemoteContribution = {
     {
       id: 'dsh-plugin-workbench#workbenchSync/preview', service: 'workbenchSync', namespace: 'workbenchSync', method: 'preview',
       invocation: { kind: 'direct' }, parameters: [], result: strict('dsh-plugin-workbench#SyncStatus', syncStatus),
+    },
+    {
+      id: 'dsh-plugin-workbench#workbenchSync/commitPreview', service: 'workbenchSync', namespace: 'workbenchSync', method: 'commitPreview',
+      invocation: { kind: 'direct' }, parameters: [parameter('paths', z.array(z.string())), parameter('message', z.string())],
+      result: strict('dsh-plugin-workbench#CommitPreview', commitPreview),
+    },
+    {
+      id: 'dsh-plugin-workbench#workbenchSync/commit', service: 'workbenchSync', namespace: 'workbenchSync', method: 'commit',
+      invocation: { kind: 'direct' },
+      parameters: [parameter('paths', z.array(z.string())), parameter('message', z.string()), parameter('previewToken', z.string())],
+      result: strict('dsh-plugin-workbench#CommitResult', z.object({ commit: z.string(), status: syncStatus })),
     },
   ],
 }

@@ -2039,6 +2039,10 @@ function createSyncView(resolve, t) {
     const [status, setStatus] = (0, import_react9.useState)(null);
     const [error62, setError] = (0, import_react9.useState)("");
     const [loading2, setLoading] = (0, import_react9.useState)(false);
+    const [selected, setSelected] = (0, import_react9.useState)([]);
+    const [message4, setMessage] = (0, import_react9.useState)("");
+    const [commitPreview2, setCommitPreview] = (0, import_react9.useState)(null);
+    const [committed, setCommitted] = (0, import_react9.useState)("");
     const load = async (fetchRemote) => {
       const remote = resolve();
       if (remote === void 0) {
@@ -2047,8 +2051,10 @@ function createSyncView(resolve, t) {
       }
       setLoading(true);
       setError("");
+      setCommitted("");
       try {
         setStatus(await (fetchRemote ? remote.refresh() : remote.preview()));
+        setCommitPreview(null);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : String(reason));
       } finally {
@@ -2058,6 +2064,48 @@ function createSyncView(resolve, t) {
     (0, import_react9.useEffect)(() => {
       void load(true);
     }, []);
+    const toggle = (path) => {
+      setSelected((current) => current.includes(path) ? current.filter((item) => item !== path) : [...current, path]);
+      setCommitPreview(null);
+      setCommitted("");
+    };
+    const prepare = async () => {
+      const remote = resolve();
+      if (remote === void 0) {
+        setError(t("sync.unavailable"));
+        return;
+      }
+      setLoading(true);
+      setError("");
+      setCommitted("");
+      try {
+        setCommitPreview(await remote.commitPreview(selected, message4));
+      } catch (reason) {
+        setCommitPreview(null);
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setLoading(false);
+      }
+    };
+    const commit = async () => {
+      const remote = resolve();
+      if (remote === void 0 || commitPreview2 === null) return;
+      setLoading(true);
+      setError("");
+      try {
+        const result = await remote.commit(commitPreview2.paths, commitPreview2.message, commitPreview2.token);
+        setStatus(result.status);
+        setSelected([]);
+        setMessage("");
+        setCommitPreview(null);
+        setCommitted(`${t("sync.committed")} ${result.commit}`);
+      } catch (reason) {
+        setCommitPreview(null);
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setLoading(false);
+      }
+    };
     return (0, import_react9.createElement)(
       "div",
       { "data-sync-view": "", style: { display: "flex", flexDirection: "column", gap: 20, maxWidth: 880 } },
@@ -2075,13 +2123,76 @@ function createSyncView(resolve, t) {
         }, style: OUTLINE_BUTTON }, loading2 ? t("loading") : t("sync.refresh"))
       ),
       error62 ? notice(error62, T.danger) : null,
+      committed ? notice(committed, T.ok) : null,
       status === null && !error62 ? notice(t("loading"), T.text3) : null,
       status === null ? null : summary(status, t),
-      status === null ? null : listSection(t("sync.localChanges"), status.files.map((file2) => `${file2.status}  ${file2.path}`), t("sync.clean")),
+      status === null ? null : commitSection(status, selected, message4, commitPreview2, loading2, toggle, (value) => {
+        setMessage(value);
+        setCommitPreview(null);
+        setCommitted("");
+      }, prepare, commit, t),
       status === null ? null : listSection(t("sync.localCommits"), status.localCommits, t("sync.none")),
       status === null ? null : listSection(t("sync.remoteCommits"), status.remoteCommits, t("sync.none"))
     );
   };
+}
+function commitSection(status, selected, message4, preview, loading2, toggle, setMessage, prepare, commit, t) {
+  const canPrepare = !loading2 && selected.length > 0 && message4.trim().length > 0 && status.blockers.length === 0;
+  return (0, import_react9.createElement)(
+    "section",
+    { "data-sync-commit-section": "", style: { display: "flex", flexDirection: "column", gap: 10 } },
+    sectionHeader(t("sync.localChanges")),
+    status.files.length === 0 ? notice(t("sync.clean"), T.text3) : (0, import_react9.createElement)(
+      "div",
+      { style: { display: "flex", flexDirection: "column", gap: 6 } },
+      ...status.files.map((file2) => (0, import_react9.createElement)(
+        "label",
+        {
+          key: file2.path,
+          "data-sync-file": file2.path,
+          style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "8px 10px", border: `1px solid ${file2.blocker ? T.danger : T.border1}`, borderRadius: 7, background: T.bgLayer2 }
+        },
+        (0, import_react9.createElement)("input", { type: "checkbox", checked: selected.includes(file2.path), disabled: Boolean(file2.blocker) || loading2, onChange: () => toggle(file2.path), style: { marginTop: 2 } }),
+        (0, import_react9.createElement)(
+          "span",
+          { style: { flex: "1 1 auto", minWidth: 0 } },
+          (0, import_react9.createElement)("span", { style: CODE }, `${file2.status}  ${file2.path}`),
+          (0, import_react9.createElement)("span", { style: { ...HINT, display: "block", color: file2.blocker ? T.danger : T.text3 } }, file2.blocker ?? `${formatBytes(file2.bytes)} \xB7 ${file2.tracked ? t("sync.tracked") : t("sync.untracked")}`)
+        )
+      ))
+    ),
+    status.files.length === 0 ? null : (0, import_react9.createElement)("textarea", {
+      value: message4,
+      disabled: loading2,
+      maxLength: 200,
+      placeholder: t("sync.messagePlaceholder"),
+      onChange: (event) => setMessage(event.target.value),
+      style: { minHeight: 64, resize: "vertical", border: `1px solid ${T.border2}`, borderRadius: 7, background: T.bgLayer1, color: T.text1, font: "inherit", fontSize: 13, padding: "9px 10px" }
+    }),
+    status.files.length === 0 ? null : (0, import_react9.createElement)(
+      "div",
+      { style: { display: "flex", gap: 8, alignItems: "center" } },
+      (0, import_react9.createElement)("button", { type: "button", "data-sync-preview": "", disabled: !canPrepare, onClick: () => {
+        void prepare();
+      }, style: OUTLINE_BUTTON }, t("sync.prepare")),
+      (0, import_react9.createElement)("span", { style: HINT }, t("sync.localOnly"))
+    ),
+    preview === null ? null : (0, import_react9.createElement)(
+      "div",
+      { style: { display: "flex", flexDirection: "column", gap: 8 } },
+      notice(t("sync.confirmHint"), T.warn),
+      ...preview.warnings.map((warning) => notice(warning, T.warn)),
+      (0, import_react9.createElement)("div", { style: { ...CODE, maxHeight: 360, overflow: "auto", whiteSpace: "pre", padding: 10, border: `1px solid ${T.border1}`, borderRadius: 7, background: T.bgLayer2 } }, preview.diff || t("sync.noDiff")),
+      (0, import_react9.createElement)("button", { type: "button", "data-sync-commit": "", disabled: loading2, onClick: () => {
+        void commit();
+      }, style: { ...OUTLINE_BUTTON, alignSelf: "flex-start", borderColor: T.warn } }, t("sync.confirmCommit"))
+    )
+  );
+}
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 function summary(status, t) {
   const cells = [
@@ -21995,11 +22106,19 @@ var syncStatus = external_exports.object({
   isMain: external_exports.boolean(),
   ahead: external_exports.number(),
   behind: external_exports.number(),
-  files: external_exports.array(external_exports.object({ path: external_exports.string(), status: external_exports.string(), tracked: external_exports.boolean() })),
+  files: external_exports.array(external_exports.object({ path: external_exports.string(), status: external_exports.string(), tracked: external_exports.boolean(), bytes: external_exports.number(), blocker: external_exports.string().optional() })),
   localCommits: external_exports.array(external_exports.string()),
   remoteCommits: external_exports.array(external_exports.string()),
   blockers: external_exports.array(external_exports.string()),
   fetchedAt: external_exports.string()
+});
+var commitPreview = external_exports.object({
+  paths: external_exports.array(external_exports.string()),
+  message: external_exports.string(),
+  diff: external_exports.string(),
+  truncated: external_exports.boolean(),
+  warnings: external_exports.array(external_exports.string()),
+  token: external_exports.string()
 });
 var unifiedRemoteContribution = {
   package: "dsh-plugin-workbench",
@@ -22081,6 +22200,24 @@ var unifiedRemoteContribution = {
       invocation: { kind: "direct" },
       parameters: [],
       result: strict("dsh-plugin-workbench#SyncStatus", syncStatus)
+    },
+    {
+      id: "dsh-plugin-workbench#workbenchSync/commitPreview",
+      service: "workbenchSync",
+      namespace: "workbenchSync",
+      method: "commitPreview",
+      invocation: { kind: "direct" },
+      parameters: [parameter("paths", external_exports.array(external_exports.string())), parameter("message", external_exports.string())],
+      result: strict("dsh-plugin-workbench#CommitPreview", commitPreview)
+    },
+    {
+      id: "dsh-plugin-workbench#workbenchSync/commit",
+      service: "workbenchSync",
+      namespace: "workbenchSync",
+      method: "commit",
+      invocation: { kind: "direct" },
+      parameters: [parameter("paths", external_exports.array(external_exports.string())), parameter("message", external_exports.string()), parameter("previewToken", external_exports.string())],
+      result: strict("dsh-plugin-workbench#CommitResult", external_exports.object({ commit: external_exports.string(), status: syncStatus }))
     }
   ]
 };
@@ -22096,10 +22233,12 @@ async function unwrap3(call, method) {
 function toWorkbenchSyncFace(raw) {
   if (raw === null || typeof raw !== "object") return void 0;
   const ns = raw;
-  if (typeof ns.refresh !== "function" || typeof ns.preview !== "function") return void 0;
+  if (typeof ns.refresh !== "function" || typeof ns.preview !== "function" || typeof ns.commitPreview !== "function" || typeof ns.commit !== "function") return void 0;
   return {
     refresh: () => unwrap3(ns.refresh(), "refresh"),
-    preview: () => unwrap3(ns.preview(), "preview")
+    preview: () => unwrap3(ns.preview(), "preview"),
+    commitPreview: (paths, message4) => unwrap3(ns.commitPreview(paths, message4), "commitPreview"),
+    commit: (paths, message4, previewToken) => unwrap3(ns.commit(paths, message4, previewToken), "commit")
   };
 }
 
@@ -22189,9 +22328,9 @@ var DICT_ZH = {
   "section.projects": "\u9879\u76EE",
   "section.host": "\u5BBF\u4E3B",
   sync: "\u540C\u6B65\u4E2D\u5FC3",
-  "sync.subtitle": "\u53EA\u8BFB\u68C0\u67E5\u672C\u5730\u4E0E\u8FDC\u7AEF main \u7684\u5DEE\u5F02\uFF1B\u672C\u9636\u6BB5\u4E0D\u4F1A\u63D0\u4EA4\u3001\u5408\u5E76\u6216\u63A8\u9001\u3002",
-  "sync.cardSummary": "\u67E5\u770B\u5F85\u4E0A\u4F20\u3001\u5F85\u4E0B\u8F7D\u548C\u672C\u5730\u6539\u52A8",
-  "sync.readOnly": "\u53EA\u8BFB\u9884\u89C8",
+  "sync.subtitle": "\u9009\u62E9\u672C\u5730\u6539\u52A8\u3001\u6838\u5BF9 diff \u5E76\u521B\u5EFA\u672C\u5730\u63D0\u4EA4\uFF1B\u4E0D\u4F1A\u62C9\u53D6\u3001\u63A8\u9001\u3001\u5B89\u88C5\u6216\u91CD\u542F\u3002",
+  "sync.cardSummary": "\u68C0\u67E5\u5DEE\u5F02\u5E76\u5B89\u5168\u521B\u5EFA\u672C\u5730\u63D0\u4EA4",
+  "sync.readOnly": "\u672C\u5730\u63D0\u4EA4",
   "sync.refresh": "\u83B7\u53D6\u8FDC\u7AEF\u5E76\u5237\u65B0",
   "sync.unavailable": "\u540C\u6B65\u670D\u52A1\u5C1A\u672A\u88C5\u8F7D\uFF0C\u8BF7\u786E\u8BA4\u7EDF\u4E00\u5DE5\u4F5C\u53F0\u5BBF\u4E3B\u63D2\u4EF6\u6B63\u5728\u8FD0\u884C\u3002",
   "sync.branch": "\u5F53\u524D\u5206\u652F",
@@ -22205,6 +22344,15 @@ var DICT_ZH = {
   "sync.remoteCommits": "\u5F85\u4E0B\u8F7D\u63D0\u4EA4",
   "sync.clean": "\u5DE5\u4F5C\u533A\u6CA1\u6709\u6539\u52A8",
   "sync.none": "\u6CA1\u6709\u63D0\u4EA4",
+  "sync.tracked": "\u5DF2\u8DDF\u8E2A",
+  "sync.untracked": "\u672A\u8DDF\u8E2A",
+  "sync.messagePlaceholder": "\u63D0\u4EA4\u8BF4\u660E\uFF0C\u4F8B\u5982\uFF1Afeat: update job radar snapshot",
+  "sync.prepare": "\u751F\u6210\u63D0\u4EA4\u9884\u89C8",
+  "sync.localOnly": "\u53EA\u4F1A\u521B\u5EFA\u672C\u5730\u63D0\u4EA4\uFF0C\u4E0D\u4F1A\u4E0A\u4F20\u3002",
+  "sync.confirmHint": "\u8BF7\u6838\u5BF9\u4EE5\u4E0B diff\uFF1B\u786E\u8BA4\u540E\u624D\u4F1A\u521B\u5EFA\u672C\u5730 Git \u63D0\u4EA4\u3002",
+  "sync.confirmCommit": "\u786E\u8BA4\u521B\u5EFA\u672C\u5730\u63D0\u4EA4",
+  "sync.noDiff": "\u6240\u9009\u6587\u4EF6\u6CA1\u6709\u53EF\u63D0\u4EA4\u7684\u6587\u672C\u5DEE\u5F02",
+  "sync.committed": "\u5DF2\u521B\u5EFA\u672C\u5730\u63D0\u4EA4",
   slot: "\u9879\u76EE",
   "slot.free": "\u9884\u7559",
   "slot.filled": "\u5DF2\u63A5\u5165",
@@ -22240,9 +22388,9 @@ var DICT_EN = {
   "section.projects": "Projects",
   "section.host": "Host",
   sync: "Sync center",
-  "sync.subtitle": "Read-only comparison with origin/main. This phase never commits, rebases, or pushes.",
-  "sync.cardSummary": "Inspect uploads, downloads, and local changes",
-  "sync.readOnly": "read only",
+  "sync.subtitle": "Select local changes, review the diff, and create a local commit. No pull, push, install, or restart.",
+  "sync.cardSummary": "Review changes and safely create a local commit",
+  "sync.readOnly": "local commit",
   "sync.refresh": "Fetch and refresh",
   "sync.unavailable": "The sync service is not mounted.",
   "sync.branch": "Branch",
@@ -22256,6 +22404,15 @@ var DICT_EN = {
   "sync.remoteCommits": "Commits to download",
   "sync.clean": "Working tree is clean",
   "sync.none": "No commits",
+  "sync.tracked": "tracked",
+  "sync.untracked": "untracked",
+  "sync.messagePlaceholder": "Commit message, e.g. feat: update job radar snapshot",
+  "sync.prepare": "Generate commit preview",
+  "sync.localOnly": "Creates a local commit only. Nothing is uploaded.",
+  "sync.confirmHint": "Review this diff. The local Git commit is created only after confirmation.",
+  "sync.confirmCommit": "Confirm local commit",
+  "sync.noDiff": "No text diff is available for the selected files",
+  "sync.committed": "Created local commit",
   slot: "Project",
   "slot.free": "reserved",
   "slot.filled": "live",

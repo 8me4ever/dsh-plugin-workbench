@@ -22,6 +22,7 @@
 子命令：
 
 * ``run``（默认）—— ``--all`` 全链路；``--only fetch|clean|a|c|aggregate`` 只跑到该步（含）。
+* ``discover`` —— 按关键词搜索、过滤并分层抽样，产出待确认商品清单。
 * ``doctor`` —— 环境自检（node / dsh / dimensions.yaml / ASIN 清单），不联网。
 """
 
@@ -38,6 +39,7 @@ from typing import Any, Optional, Sequence
 from . import config
 from .clean import Cleaner
 from .dimensions import DimensionError, DimensionSet, load_dimension_set
+from .discovery import YahooAmazonUkDiscovery, write_manifest
 from .fetch import AmazonUkRun, get_fetcher
 from .llm.client import DshHeadlessClient, LlmError
 from .llm.prompts import PromptLibrary
@@ -438,6 +440,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="只跑到该步（含）：fetch | clean | a | c | aggregate",
     )
 
+    discover = sub.add_parser("discover", help="按关键词发现 Amazon UK 代表性商品（不启动评论分析）")
+    discover.add_argument("--keyword", required=True, help="英文细分品类关键词，例如 ceramic pasta bowls")
+    discover.add_argument("--count", type=int, default=10, choices=range(8, 11), metavar="8..10", help="样本数（8–10，默认 10）")
+    discover.add_argument("--min-reviews", type=int, default=100, help="最低评论量（默认 100）")
+    discover.add_argument("--output", default=None, help="待确认 JSON 路径；默认写入 data/discovery/<关键词>.json")
+
     sub.add_parser("doctor", help="环境自检：node / dsh / dimensions.yaml / ASIN 清单（不联网）")
     return parser
 
@@ -459,6 +467,7 @@ def main(
     jitter: Optional[Any] = None,
     now: Optional[Any] = None,
     generated_at: Optional[str] = None,
+    discovery: Any = None,
 ) -> int:
     """CLI 入口；返回进程退出码（0 成功 / 1 步骤失败 / 2 前置检查不过）。
 
@@ -471,6 +480,25 @@ def main(
 
     if command == "doctor":
         return _doctor()
+
+    if command == "discover":
+        keyword = str(args.keyword).strip()
+        slug = "-".join(part for part in keyword.lower().split() if part)
+        output = Path(args.output) if args.output else config.DATA_DIR / "discovery" / f"{slug}.json"
+        engine = discovery if discovery is not None else YahooAmazonUkDiscovery()
+        try:
+            manifest = engine.discover(keyword, count=args.count, min_reviews=args.min_reviews)
+            write_manifest(manifest, output)
+        except Exception as exc:  # noqa: BLE001 - CLI keeps discovery failures actionable
+            return _fail(PipelineError(
+                f"商品发现失败：{type(exc).__name__}: {exc}",
+                fix=f'python -m tableware_radar.cli discover --keyword "{keyword}"',
+                stage="discover",
+            ), code=1)
+        print(f"[完成] 已从 {manifest.marketplace} 选出 {manifest.selected_count} 个代表性商品")
+        print(f"       待确认清单：{output}")
+        print("       确认 selected_asins 后再启动评论抓取；本命令不会自动运行分析。")
+        return 0
 
     only = None if getattr(args, "all", False) else getattr(args, "only", None)
 

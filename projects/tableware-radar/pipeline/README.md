@@ -91,6 +91,24 @@ python -m tableware_radar.cli run --all       # 一条命令跑通全链路
 | `run --only fetch\|clean\|a\|c\|aggregate` | 只跑到该步（含），便于分段调试 |
 | `doctor` | 环境自检（node / dsh / dimensions.yaml / ASIN 清单），**不联网** |
 
+## 8. 关键词商品发现（基础链路已验证）
+
+正式分析前先生成一份可人工确认的代表性商品清单；该命令不会抓评论、调用 LLM 或自动启动分析：
+
+```powershell
+cd pipeline
+$env:PYTHONPATH = "src"
+python -m tableware_radar.cli discover --keyword "ceramic pasta bowls" --count 10
+```
+
+默认输出 `../data/discovery/ceramic-pasta-bowls.json`，包含全部解析候选、入选标记、价格/评分/评论量、抽样分层和入选原因。抽样会排除广告、评论量不足和相关度不足的商品，并覆盖高热度、中等评分、较低价格与较高价格样本。
+
+真实探针确认 Amazon UK 站内搜索页会返回 HTTP 202 JavaScript WAF，无头 Chromium 同样返回 503。因此当前命令使用 Yahoo 搜索结果发现 Amazon UK 的 `/dp/<ASIN>` 链接，再逐一读取 Amazon 商品详情页获得标题、价格、评分和评论量；搜索引擎数据不参与正式商品指标或后续评论分析。站内搜索墙会被明确报错，不会把空列表伪装成成功。
+
+首个真实测试词为 `ceramic pasta bowls`。人工确认 10 个商品位后，抓取阶段对评论不足的 3 个商品自动使用备选商品替换，最终 10 个商品位全部达到每个至少 10 条评论的阈值，共保留 123 条 24 个月窗口内评论。发现清单、原始评论、清洗结果和日志都属于本地运行产物，受项目 `.gitignore` 保护，不进入统一仓库。
+
+当前后半段仍使用 DSH Headless 调用 LLM。真实运行在暖机阶段因 API 额度不足停止，尚未生成新的动态购买诉求结果；已有评论数据可直接续跑，无需重新发现商品或抓取。下一步是先完成并验证独立 CLI 分析闭环，再把稳定命令接入工作台。
+
 **前置检查（快速失败，PRD §8.2）**：`config/dimensions.yaml` **不存在** → 提示以
 `dimensions.example.yaml` 为起点复制；**存在但 `validate()` 不过** → 拒绝执行。
 两种情况都打印**可直接复制执行**的命令。任一阶段失败同样打印可复制修复命令并非零退出。

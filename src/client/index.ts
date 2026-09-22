@@ -18,15 +18,10 @@
  * in `projects/types.ts` — this file only builds the context they receive and
  * registers the two occupants.
  *
- * Data comes from the host's read-only inventory Remote
- * (`pluginInventory/list`), which every deployment mounting
- * `@deepseek-ai/dsh-host-plugin-inventory` provides. Nothing is fetched through
- * a private RPC, so this plugin adds no host-side API of its own.
- *
- * One project wants more than that: Job Radar reads a second Remote
- * (`remote.jobRadar`, mounted by the separate `dsh-job-radar` plugin). That one
- * is resolved **per call** through `ctx.reflect` and may legitimately be absent
- * — see `resolveOptionalRemote` below for why it is not an `inject`.
+ * Data comes from the host inventory Remote plus the three faces mounted by
+ * this unified package: Job Radar, Tableware Radar, and workbench sync. They are
+ * resolved **per call** through `ctx.reflect` because the client half can mount
+ * before the generated namespaces become available.
  *
  * Built by build.mjs into the module-loader factory bundle at
  * client/client.js; the only external is react.
@@ -117,11 +112,11 @@ interface WorkbenchClientContext {
 }
 
 /**
- * Resolve a Remote that belongs to another, optional plugin.
+ * Resolve a Remote namespace that may not have mounted yet.
  *
  * `remote.<namespace>` is a genuine service key (the api-gateway client mounts
- * each mounted namespace as one), but the namespace only exists once that
- * plugin's client half has mounted — which may be later than this one, or never.
+ * each mounted namespace as one), but the namespace only exists once its
+ * descriptor contribution has mounted — which may be later than this view.
  * So it is read through `reflect` on every call instead of being declared in
  * `inject`: declaring it would park the whole workbench, console and all,
  * waiting on a plugin that has nothing to do with it.
@@ -279,9 +274,9 @@ export const DICT_ZH: Dict = {
   'section.projects': '项目',
   'section.host': '宿主',
   sync: '同步中心',
-  'sync.subtitle': '只读检查本地与远端 main 的差异；本阶段不会提交、合并或推送。',
-  'sync.cardSummary': '查看待上传、待下载和本地改动',
-  'sync.readOnly': '只读预览',
+  'sync.subtitle': '选择本地改动、核对 diff 并创建本地提交；不会拉取、推送、安装或重启。',
+  'sync.cardSummary': '检查差异并安全创建本地提交',
+  'sync.readOnly': '本地提交',
   'sync.refresh': '获取远端并刷新',
   'sync.unavailable': '同步服务尚未装载，请确认统一工作台宿主插件正在运行。',
   'sync.branch': '当前分支',
@@ -295,6 +290,15 @@ export const DICT_ZH: Dict = {
   'sync.remoteCommits': '待下载提交',
   'sync.clean': '工作区没有改动',
   'sync.none': '没有提交',
+  'sync.tracked': '已跟踪',
+  'sync.untracked': '未跟踪',
+  'sync.messagePlaceholder': '提交说明，例如：feat: update job radar snapshot',
+  'sync.prepare': '生成提交预览',
+  'sync.localOnly': '只会创建本地提交，不会上传。',
+  'sync.confirmHint': '请核对以下 diff；确认后才会创建本地 Git 提交。',
+  'sync.confirmCommit': '确认创建本地提交',
+  'sync.noDiff': '所选文件没有可提交的文本差异',
+  'sync.committed': '已创建本地提交',
   slot: '项目',
   'slot.free': '预留',
   'slot.filled': '已接入',
@@ -331,9 +335,9 @@ export const DICT_EN: Dict = {
   'section.projects': 'Projects',
   'section.host': 'Host',
   sync: 'Sync center',
-  'sync.subtitle': 'Read-only comparison with origin/main. This phase never commits, rebases, or pushes.',
-  'sync.cardSummary': 'Inspect uploads, downloads, and local changes',
-  'sync.readOnly': 'read only',
+  'sync.subtitle': 'Select local changes, review the diff, and create a local commit. No pull, push, install, or restart.',
+  'sync.cardSummary': 'Review changes and safely create a local commit',
+  'sync.readOnly': 'local commit',
   'sync.refresh': 'Fetch and refresh',
   'sync.unavailable': 'The sync service is not mounted.',
   'sync.branch': 'Branch',
@@ -347,6 +351,15 @@ export const DICT_EN: Dict = {
   'sync.remoteCommits': 'Commits to download',
   'sync.clean': 'Working tree is clean',
   'sync.none': 'No commits',
+  'sync.tracked': 'tracked',
+  'sync.untracked': 'untracked',
+  'sync.messagePlaceholder': 'Commit message, e.g. feat: update job radar snapshot',
+  'sync.prepare': 'Generate commit preview',
+  'sync.localOnly': 'Creates a local commit only. Nothing is uploaded.',
+  'sync.confirmHint': 'Review this diff. The local Git commit is created only after confirmation.',
+  'sync.confirmCommit': 'Confirm local commit',
+  'sync.noDiff': 'No text diff is available for the selected files',
+  'sync.committed': 'Created local commit',
   slot: 'Project',
   'slot.free': 'reserved',
   'slot.filled': 'live',

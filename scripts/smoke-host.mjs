@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const bundle = readFileSync(join(root, 'lib', 'index.js'), 'utf8')
 
-for (const symbol of ['JobRadarRuntime', 'TablewareRadarRuntime', 'WorkbenchSyncRuntime', 'jobRadar', 'tablewareRadar', 'workbenchSync']) {
+for (const symbol of ['JobRadarRuntime', 'TablewareRadarRuntime', 'WorkbenchSyncRuntime', 'jobRadar', 'tablewareRadar', 'workbenchSync', 'commitPreview', 'previewToken']) {
   assert.ok(bundle.includes(symbol), `host bundle is missing ${symbol}`)
 }
 
